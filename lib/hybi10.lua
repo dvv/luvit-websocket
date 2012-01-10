@@ -1,5 +1,5 @@
-local get_digest = require('crypto').get_digest
-
+local Utils = require('utils')
+local Crypto = require('crypto')
 local Math = require('math')
 
 local band, bor, bxor, rshift, lshift
@@ -43,7 +43,7 @@ local push = Table.insert
 
 local function verify_secret(key)
   local data = (match(key, '(%S+)')) .. '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
-  local dg = get_digest('sha1'):init()
+  local dg = Crypto.get_digest('sha1'):init()
   dg:update(data)
   local r = dg:final()
   dg:cleanup()
@@ -105,8 +105,106 @@ local function sender(self, payload, callback)
   self:write(a, callback)
 end
 
+local receiver
+receiver = function (self, chunk)
+
+  if chunk then self.buffer = self.buffer .. chunk end
+  if #self.buffer < 2 then return end
+  local buf = self.buffer
+
+  local status = nil
+  local reason = nil
+
+  local first = band(byte(buf, 2), 0x7F)
+  if band(byte(buf, 1), 0x80) ~= 0x80 then
+    self:emit('error', 1002, 'Fin flag not set')
+    return 
+  end
+
+  local opcode = band(byte(buf, 1), 0x0F)
+  if opcode ~= 1 and opcode ~= 8 then
+    self:emit('error', 1002, 'not a text nor close frame')
+    return 
+  end
+
+  if opcode == 8 and first >= 126 then
+    self:emit('error', 1002, 'wrong length for close frame')
+    return 
+  end
+
+  local l = 0
+  local length = 0
+  local key = { }
+  local masking = band(byte(buf, 2), 0x80) ~= 0
+  if first < 126 then
+    length = first
+    l = 2
+  else
+    if first == 126 then
+      if #buf < 4 then
+        return 
+      end
+      length = bor(lshift(byte(buf, 3), 8), byte(buf, 4))
+      l = 4
+    else
+      if first == 127 then
+        if #buf < 10 then
+          return 
+        end
+        length = 0
+        for i = 3, 10 do
+          length = bor(length, lshift(byte(buf, i), (10 - i) * 8))
+        end
+        l = 10
+      end
+    end
+  end
+  if masking then
+    if #buf < l + 4 then
+      return 
+    end
+    key[1] = byte(buf, l + 1)
+    key[2] = byte(buf, l + 2)
+    key[3] = byte(buf, l + 3)
+    key[4] = byte(buf, l + 4)
+    l = l + 4
+  end
+  if #buf < l + length then
+    return 
+  end
+
+  local payload = sub(buf, l + 1, l + length)
+  local tbl = { }
+  if masking then
+    for i = 1, length do
+      push(tbl, bxor(byte(payload, i), key[(i - 1) % 4 + 1]))
+    end
+    payload = table_to_string(tbl)
+  end
+  self.buffer = sub(buf, l + length + 1)
+
+  if opcode == 1 then
+    if #payload > 0 then
+      self:emit('message', payload)
+    end
+    receiver(self)
+    return
+  else
+    if opcode == 8 then
+      if #payload >= 2 then
+        status = bor(lshift(byte(payload, 1), 8), byte(payload, 2))
+      end
+      if #payload > 2 then
+        reason = sub(payload, 3)
+      end
+      self:emit('error', status, reason)
+    end
+  end
+end
+
 local function handshake(self, origin, location, callback)
 
+  -- ack connection
   local protocol = self.req.headers['sec-websocket-protocol']
   if protocol then
     protocol = (match(protocol, '[^,]*'))
@@ -119,111 +217,14 @@ local function handshake(self, origin, location, callback)
   })
 
   self.has_body = true
-  local data = ''
 
-  local ondata
-  ondata = function (chunk)
-
-    if chunk then data =  data .. chunk end
-    if #data < 2 then return end
-    local buf = data
-
-    local status = nil
-    local reason = nil
-
-    local first = band(byte(buf, 2), 0x7F)
-    if band(byte(buf, 1), 0x80) ~= 0x80 then
-      self:emit('error', 1002, 'Fin flag not set')
-      return 
-    end
-
-    local opcode = band(byte(buf, 1), 0x0F)
-    if opcode ~= 1 and opcode ~= 8 then
-      error('not a text nor close frame', opcode)
-      self:emit('error', 1002, 'not a text nor close frame')
-      return 
-    end
-
-    if opcode == 8 and first >= 126 then
-      error('wrong length for close frame!!!')
-      self:emit('error', 1002, 'wrong length for close frame')
-      return 
-    end
-
-    local l = 0
-    local length = 0
-    local key = { }
-    local masking = band(byte(buf, 2), 0x80) ~= 0
-    if first < 126 then
-      length = first
-      l = 2
-    else
-      if first == 126 then
-        if #buf < 4 then
-          return 
-        end
-        length = bor(lshift(byte(buf, 3), 8), byte(buf, 4))
-        l = 4
-      else
-        if first == 127 then
-          if #buf < 10 then
-            return 
-          end
-          length = 0
-          for i = 3, 10 do
-            length = bor(length, lshift(byte(buf, i), (10 - i) * 8))
-          end
-          l = 10
-        end
-      end
-    end
-    if masking then
-      if #buf < l + 4 then
-        return 
-      end
-      key[1] = byte(buf, l + 1)
-      key[2] = byte(buf, l + 2)
-      key[3] = byte(buf, l + 3)
-      key[4] = byte(buf, l + 4)
-      l = l + 4
-    end
-    if #buf < l + length then
-      return 
-    end
-
-    local payload = sub(buf, l + 1, l + length)
-    local tbl = { }
-    if masking then
-      for i = 1, length do
-        push(tbl, bxor(byte(payload, i), key[(i - 1) % 4 + 1]))
-      end
-      payload = table_to_string(tbl)
-    end
-    data = sub(buf, l + length + 1)
-
-    if opcode == 1 then
-      if #payload > 0 then
-        self:emit('message', payload)
-      end
-      ondata()
-      return
-    else
-      if opcode == 8 then
-        if #payload >= 2 then
-          status = bor(lshift(byte(payload, 1), 8), byte(payload, 2))
-        end
-        if #payload > 2 then
-          reason = sub(payload, 3)
-        end
-        self:emit('error', status, reason)
-      end
-    end
-  end
-
-  self.req:on('data', ondata)
-
+  -- setup receiver
+  self.buffer = ''
+  self.req:on('data', Utils.bind(self, receiver))
+  -- setup sender
   self.send = sender
 
+  -- register connection
   if callback then callback() end
 
 end
@@ -231,5 +232,6 @@ end
 -- module
 return {
   sender = sender,
+  receiver = receiver,
   handshake = handshake,
 }

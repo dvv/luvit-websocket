@@ -1,5 +1,4 @@
-local get_digest = require('crypto').get_digest
-
+local Crypto = require('crypto')
 local Math = require('math')
 
 local band, bor, bxor, rshift, lshift
@@ -44,8 +43,35 @@ local function sender(self, payload, callback)
   self:write('\255', callback)
 end
 
+local receiver
+receiver = function (self, chunk)
+  if chunk then self.buffer = self.buffer .. chunk end
+  local buf = self.buffer
+  if #buf == 0 then return end
+  if byte(buf, 1) == 0 then
+    for i = 2, #buf do
+      if byte(buf, i) == 255 then
+        local payload = sub(buf, 2, i - 1)
+        self.buffer = sub(buf, i + 1)
+        if #payload > 0 then
+          self:emit('message', payload)
+        end
+        receiver(self)
+        return
+      end
+    end
+  else
+    if byte(buf, 1) == 255 and byte(buf, 2) == 0 then
+      self:emit('error')
+    else
+      self:emit('error', 1002, 'Broken framing')
+    end
+  end
+end
+
 local function handshake(self, origin, location, callback)
 
+  -- ack connection
   self.sec = self.req.headers['sec-websocket-key1']
   local prefix = self.sec and 'Sec-' or ''
   local protocol = self.req.headers['sec-websocket-protocol']
@@ -61,36 +87,9 @@ local function handshake(self, origin, location, callback)
   })
 
   self.has_body = true
+
+  -- verify connection
   local data = ''
-
-  local ondata
-  ondata = function (chunk)
-    if chunk then
-      data = data .. chunk
-    end
-    local buf = data
-    if #buf == 0 then return end
-    if byte(buf, 1) == 0 then
-      for i = 2, #buf do
-        if byte(buf, i) == 255 then
-          local payload = sub(buf, 2, i - 1)
-          data = sub(buf, i + 1)
-          if #payload > 0 then
-            self:emit('message', payload)
-          end
-          ondata()
-          return
-        end
-      end
-    else
-      if byte(buf, 1) == 255 and byte(buf, 2) == 0 then
-        self:emit('error')
-      else
-        self:emit('error', 1002, 'Broken framing')
-      end
-    end
-  end
-
   self.req:once('data', function (chunk)
     data = data .. chunk
     if self.sec == false or #data >= 8 then
@@ -98,18 +97,23 @@ local function handshake(self, origin, location, callback)
         local nonce = sub(data, 1, 8)
         data = sub(data, 9)
         local reply = validate_secret(self.req.headers, nonce)
+        -- close unless verified
         if not reply then
           self:emit('error')
           return
         end
         self.sec = nil
-        self:on('data', ondata)
+        -- setup receiver
+        self.buffer = ''
+        self.req:on('data', Utils.bind(self, receiver))
+        -- register connection
         self:write(reply)
         if callback then callback() end
       end
     end
   end)
 
+  -- setup sender
   self.send = sender
 
 end
@@ -117,5 +121,6 @@ end
 -- module
 return {
   sender = sender,
+  receiver = receiver,
   handshake = handshake,
 }
