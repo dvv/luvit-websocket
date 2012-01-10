@@ -6,8 +6,8 @@ local Table = require('table')
 local Utils = require('utils')
 local Timer = require('timer')
 
-local hixie76 = require('./hixie76')
-local hybi10 = require('./hybi10')
+local hixie76 = require('./hixie76').handshake
+local hybi10 = require('./hybi10').handshake
 
 -- Connection
 local Connection = { }

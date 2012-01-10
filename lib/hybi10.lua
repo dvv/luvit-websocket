@@ -64,7 +64,48 @@ local function table_to_string(tbl)
   return s
 end
 
-return function (self, origin, location, callback)
+local function sender(self, payload, callback)
+  local pl = #payload
+  local a = { }
+  push(a, 128 + 1)
+  push(a, 0x80)
+  if pl < 126 then
+    a[2] = bor(a[2], pl)
+  else
+    if pl < 65536 then
+      a[2] = bor(a[2], 126)
+      push(a, rshift(pl, 8) % 256)
+      push(a, pl % 256)
+    else
+      for i = 1, 8 do
+        push(a, true)
+      end
+      local pl2 = pl
+      a[2] = bor(a[2], 127)
+      for i = 10, 3, -1 do
+        a[i] = pl2 % 256
+        pl2 = rshift(pl2, 8)
+      end
+    end
+  end
+  local key = {
+    rand256(),
+    rand256(),
+    rand256(),
+    rand256()
+  }
+  push(a, key[1])
+  push(a, key[2])
+  push(a, key[3])
+  push(a, key[4])
+  for i = 1, pl do
+    push(a, bxor(byte(payload, i), key[(i - 1) % 4 + 1]))
+  end
+  a = table_to_string(a)
+  self:write(a, callback)
+end
+
+local function handshake(self, origin, location, callback)
 
   local protocol = self.req.headers['sec-websocket-protocol']
   if protocol then
@@ -181,47 +222,14 @@ return function (self, origin, location, callback)
 
   self.req:on('data', ondata)
 
-  self.send = function (self, payload, callback)
-    local pl = #payload
-    local a = { }
-    push(a, 128 + 1)
-    push(a, 0x80)
-    if pl < 126 then
-      a[2] = bor(a[2], pl)
-    else
-      if pl < 65536 then
-        a[2] = bor(a[2], 126)
-        push(a, rshift(pl, 8) % 256)
-        push(a, pl % 256)
-      else
-        for i = 1, 8 do
-          push(a, true)
-        end
-        local pl2 = pl
-        a[2] = bor(a[2], 127)
-        for i = 10, 3, -1 do
-          a[i] = pl2 % 256
-          pl2 = rshift(pl2, 8)
-        end
-      end
-    end
-    local key = {
-      rand256(),
-      rand256(),
-      rand256(),
-      rand256()
-    }
-    push(a, key[1])
-    push(a, key[2])
-    push(a, key[3])
-    push(a, key[4])
-    for i = 1, pl do
-      push(a, bxor(byte(payload, i), key[(i - 1) % 4 + 1]))
-    end
-    a = table_to_string(a)
-    self:write(a, callback)
-  end
+  self.send = sender
 
   if callback then callback() end
 
 end
+
+-- module
+return {
+  sender = sender,
+  handshake = handshake,
+}

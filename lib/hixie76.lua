@@ -38,7 +38,13 @@ local function validate_secret(req_headers, nonce)
   return r
 end
 
-return function (self, origin, location, callback)
+local function sender(self, payload, callback)
+  self:write('\000')
+  self:write(payload)
+  self:write('\255', callback)
+end
+
+local function handshake(self, origin, location, callback)
 
   self.sec = self.req.headers['sec-websocket-key1']
   local prefix = self.sec and 'Sec-' or ''
@@ -93,7 +99,7 @@ return function (self, origin, location, callback)
         data = sub(data, 9)
         local reply = validate_secret(self.req.headers, nonce)
         if not reply then
-          self:do_reasoned_close()
+          self:emit('error')
           return
         end
         self.sec = nil
@@ -104,10 +110,12 @@ return function (self, origin, location, callback)
     end
   end)
 
-  self.send = function (self, payload, callback)
-    self:write('\000')
-    self:write(payload)
-    self:write('\255', callback)
-  end
+  self.send = sender
 
 end
+
+-- module
+return {
+  sender = sender,
+  handshake = handshake,
+}
