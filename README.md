@@ -10,11 +10,7 @@ Server
 -----
 
 ```lua
--- create application
-local app = require('app').new()
-
--- websocket
-app:mount('/ws/', 'websocket', {
+local handle_websocket = require('./')({
   onopen = function (conn)
     p('OPEN', conn)
   end,
@@ -36,15 +32,21 @@ app:mount('/ws/', 'websocket', {
   end,
 })
 
--- run server
-app:run(8080, '0.0.0.0')
+require('http').create_server('0.0.0.0', 8080, function (req, res)
+  if req.url:sub(1, 3) == '/ws' then
+    handle_websocket(req, res)
+  else
+    res:finish()
+  end
+end)
+print('Open a browser, and try to create a WebSocket for ws://localhost:8080/ws')
 ```
 
 Browser
 -----
 
 ```js
-var ws = new WebSocket('ws://localhost:8080/ws/whatever')
+var ws = new WebSocket('ws://localhost:8080/ws')
 ws.send('foo')
 ws.send('quit')
 ```
