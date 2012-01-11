@@ -24,8 +24,6 @@
 
 static int encode(lua_State *L) {
 
-  // `buf` is enough hold `len` + 10 octets
-  // `buf` point to '0000000000PAYLOAD...'
   uint8_t *p = (uint8_t *)luaL_checkstring(L, 1);
   uint32_t len = luaL_checkint(L, 2);
 
@@ -59,7 +57,6 @@ static int encode(lua_State *L) {
   // TODO: srand? or read /dev/urandom?
   for (ki = 0; ki < 4; ++ki) {
     key[ki] = rand() & 0xFF;
-    printf("KEY %x\n", key[ki]);
   }
   p += 4;
 
@@ -72,12 +69,28 @@ static int encode(lua_State *L) {
   return 0;
 }
 
+static int mask(lua_State *L) {
+
+  uint8_t *p = (uint8_t *)luaL_checkstring(L, 1);
+  uint8_t *key = (uint8_t *)luaL_checkstring(L, 2);
+  uint32_t len = luaL_checkint(L, 3);
+
+  // mask buffer content
+  uint32_t i, ki;
+  for (i = 0, ki = 0; i < len; ++i) {
+    p[i] ^= key[ki];
+    if (++ki > 3) ki = 0;
+  }
+
+  return 0;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 
 static const luaL_reg exports[] = {
   {"encode", encode},
+  {"mask", mask},
   {NULL, NULL}
 };
 

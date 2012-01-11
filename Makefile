@@ -1,4 +1,7 @@
 CFLAGS   := $(shell luvit-config --cflags)
 
-all:
-	gcc -shared -g $(CFLAGS) -o lib/hybi10.luvit lib/hybi10.c
+all: build/hybi10.luvit
+
+build/hybi10.luvit: src/hybi10.c
+	mkdir -p build
+	gcc -shared -g $(CFLAGS) -o $@ $^

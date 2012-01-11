@@ -1,12 +1,10 @@
 #include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
-// `buf` is enough hold `len` + 10 octets
-// `buf` point to '0000000000PAYLOAD...'
-void encode(uint8_t *buf, uint32_t len) {
+//void encode(uint8_t *buf, uint32_t len) {
+void encode(const char *buf, uint32_t len) {
 
-  uint8_t *p = buf;
+  uint8_t *p = (uint8_t *) buf;
   uint32_t i;
 
   // compose header
@@ -35,12 +33,25 @@ void encode(uint8_t *buf, uint32_t len) {
   uint32_t ki;
   uint8_t *key = p;
   // TODO: srand? or read /dev/urandom?
-  for (ki = 0; i < 4; ++ki) {
+  for (ki = 0; ki < 4; ++ki) {
     key[ki] = rand() & 0xFF;
   }
   p += 4;
 
   // mask buffer content
+  for (i = 0, ki = 0; i < len; ++i) {
+    p[i] ^= key[ki];
+    if (++ki > 3) ki = 0;
+  }
+
+}
+
+void mask(uint8_t *buf, uint8_t *key, uint32_t len) {
+
+  uint8_t *p = buf;
+
+  // mask buffer content
+  uint32_t i, ki;
   for (i = 0, ki = 0; i < len; ++i) {
     p[i] ^= key[ki];
     if (++ki > 3) ki = 0;
