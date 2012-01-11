@@ -40,6 +40,10 @@ end
 local Table = require('table')
 local push = Table.insert
 
+--
+-- verify connection secret
+--
+
 local function verify_secret(key)
   local data = (match(key, '(%S+)')) .. '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
   return Crypto.sha1(data, true)
@@ -48,6 +52,10 @@ end
 -- Lua has no mutable string. Workarounds are slow too.
 -- Let's employ C power.
 local Codec = require('../build/hybi10.luvit')
+
+--
+-- send payload
+--
 
 local function sender(self, payload, callback)
   local plen = #payload
@@ -59,28 +67,39 @@ local function sender(self, payload, callback)
   self:write(str, callback)
 end
 
+--
+-- extract complete message frames from incoming data
+--
+
 local receiver
 receiver = function (self, chunk)
 
+  -- collect data chunks
   if chunk then self.buffer = self.buffer .. chunk end
+  -- wait for data
   if #self.buffer < 2 then return end
   local buf = self.buffer
 
   local status = nil
   local reason = nil
 
+  -- frame should have 'finalized' flag set
+  -- TODO: fragments!
   local first = band(byte(buf, 2), 0x7F)
   if band(byte(buf, 1), 0x80) ~= 0x80 then
     self:emit('error', 1002, 'Fin flag not set')
     return 
   end
 
+  -- get frame type
+  -- N.B. we support only text and close frames
   local opcode = band(byte(buf, 1), 0x0F)
   if opcode ~= 1 and opcode ~= 8 then
     self:emit('error', 1002, 'not a text nor close frame')
     return 
   end
 
+  -- reject too lenghty close frames
   if opcode == 8 and first >= 126 then
     self:emit('error', 1002, 'wrong length for close frame')
     return 
@@ -88,8 +107,11 @@ receiver = function (self, chunk)
 
   local l = 0
   local length = 0
-  local key = { }
+  -- is message masked?
   local masking = band(byte(buf, 2), 0x80) ~= 0
+
+  -- get the length of payload.
+  -- wait for additional data chunks if amount of data is insufficient
   if first < 126 then
     length = first
     l = 2
@@ -113,44 +135,57 @@ receiver = function (self, chunk)
       end
     end
   end
+
+  -- message masked?
   if masking then
+    -- frame should contain 4-octet mask
     if #buf < l + 4 then
       return 
     end
-    key[1] = byte(buf, l + 1)
-    key[2] = byte(buf, l + 2)
-    key[3] = byte(buf, l + 3)
-    key[4] = byte(buf, l + 4)
     l = l + 4
   end
+  -- frame should be completely available
   if #buf < l + length then
     return 
   end
 
+  -- extract payload
+  -- TODO: buffers can save much time here
   local payload = sub(buf, l + 1, l + length)
+  -- unmask if masked
   if masking then
     Codec.mask(payload, sub(buf, l - 3, l), length)
   end
+  -- consume data
   self.buffer = sub(buf, l + length + 1)
 
+  -- message frame?
   if opcode == 1 then
+    -- emit 'message' event
     if #payload > 0 then
       self:emit('message', payload)
     end
+    -- and start over
     receiver(self)
-    return
-  else
-    if opcode == 8 then
-      if #payload >= 2 then
-        status = bor(lshift(byte(payload, 1), 8), byte(payload, 2))
-      end
-      if #payload > 2 then
-        reason = sub(payload, 3)
-      end
-      self:emit('error', status, reason)
+  -- close frame
+  elseif opcode == 8 then
+    -- contains 2-octet status
+    if #payload >= 2 then
+      status = bor(lshift(byte(payload, 1), 8), byte(payload, 2))
     end
+    -- and textual reason
+    if #payload > 2 then
+      reason = sub(payload, 3)
+    end
+    -- report error. N.B. close is handled by error handler
+    self:emit('error', status, reason)
   end
+
 end
+
+--
+-- initialize the channel
+--
 
 local function handshake(self, origin, location, callback)
 

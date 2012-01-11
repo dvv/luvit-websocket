@@ -1,11 +1,5 @@
 local Crypto = require('crypto')
-local Math = require('math')
-
-local band, bor, bxor, rshift, lshift
-do
-  local _table_0 = require('bit')
-  band, bor, bxor, rshift, lshift = _table_0.band, _table_0.bor, _table_0.bxor, _table_0.rshift, _table_0.lshift
-end
+local rshift = require('bit').rshift
 
 local sub, gsub, match, byte, char
 do
@@ -13,29 +7,33 @@ do
   sub, gsub, match, byte, char = _table_0.sub, _table_0.gsub, _table_0.match, _table_0.byte, _table_0.char
 end
 
-local function validate_secret(req_headers, nonce)
+--
+-- verify connection secret
+--
+
+local function verify_secret(req_headers, nonce)
   local k1 = req_headers['sec-websocket-key1']
   local k2 = req_headers['sec-websocket-key2']
   if not k1 or not k2 then
     return false
   end
-  local dg = get_digest('md5'):init()
-  local _list_0 = { k1, k2 }
-  for _index_0 = 1, #_list_0 do
-    local k = _list_0[_index_0]
+  local data = ''
+  for _, k in { k1, k2 } do
     local n = tonumber((gsub(k, '[^%d]', '')), 10)
     local spaces = #(gsub(k, '[^ ]', ''))
     if spaces == 0 or n % spaces ~= 0 then
       return false
     end
     n = n / spaces
-    dg:update(char(rshift(n, 24) % 256, rshift(n, 16) % 256, rshift(n, 8) % 256, n % 256))
+    data = data .. char(rshift(n, 24) % 256, rshift(n, 16) % 256, rshift(n, 8) % 256, n % 256)
   end
-  dg:update(nonce)
-  local r = dg:final()
-  dg:cleanup()
-  return r
+  data = data .. nonce
+  return Crypto.md5(data, true)
 end
+
+--
+-- send payload
+--
 
 local function sender(self, payload, callback)
   self:write('\000')
@@ -43,31 +41,50 @@ local function sender(self, payload, callback)
   self:write('\255', callback)
 end
 
+--
+-- extract complete message frames from incoming data
+--
+
 local receiver
 receiver = function (self, chunk)
+  -- collect data chunks
   if chunk then self.buffer = self.buffer .. chunk end
   local buf = self.buffer
+  -- wait for data
   if #buf == 0 then return end
+  -- message starts with 0x00
   if byte(buf, 1) == 0 then
+    -- and lasts
     for i = 2, #buf do
+      -- until 0xFF
       if byte(buf, i) == 255 then
+        -- extract payload
         local payload = sub(buf, 2, i - 1)
+        -- consume data
         self.buffer = sub(buf, i + 1)
+        -- emit event
         if #payload > 0 then
           self:emit('message', payload)
         end
+        -- start over
         receiver(self)
         return
       end
     end
+  -- close frame is sequence of 0xFF, 0x00
   else
     if byte(buf, 1) == 255 and byte(buf, 2) == 0 then
       self:emit('error')
+    -- other sequences signify broken framimg
     else
       self:emit('error', 1002, 'Broken framing')
     end
   end
 end
+
+--
+-- initialize the channel
+--
 
 local function handshake(self, origin, location, callback)
 
@@ -96,7 +113,7 @@ local function handshake(self, origin, location, callback)
       if self.sec then
         local nonce = sub(data, 1, 8)
         data = sub(data, 9)
-        local reply = validate_secret(self.req.headers, nonce)
+        local reply = verify_secret(self.req.headers, nonce)
         -- close unless verified
         if not reply then
           self:emit('error')
