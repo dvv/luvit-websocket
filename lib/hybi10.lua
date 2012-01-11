@@ -64,27 +64,27 @@ local function table_to_string(tbl)
   return s
 end
 
-local function sender(self, payload, callback)
-  local pl = #payload
+local function sender0(self, payload, callback)
+  local plen = #payload
   local a = { }
   push(a, 128 + 1)
   push(a, 0x80)
-  if pl < 126 then
-    a[2] = bor(a[2], pl)
+  if plen < 126 then
+    a[2] = bor(a[2], plen)
   else
-    if pl < 65536 then
+    if plen < 65536 then
       a[2] = bor(a[2], 126)
-      push(a, rshift(pl, 8) % 256)
-      push(a, pl % 256)
+      push(a, rshift(plen, 8) % 256)
+      push(a, plen % 256)
     else
       for i = 1, 8 do
         push(a, true)
       end
-      local pl2 = pl
+      local plen2 = plen
       a[2] = bor(a[2], 127)
       for i = 10, 3, -1 do
-        a[i] = pl2 % 256
-        pl2 = rshift(pl2, 8)
+        a[i] = plen2 % 256
+        plen2 = rshift(plen2, 8)
       end
     end
   end
@@ -98,11 +98,38 @@ local function sender(self, payload, callback)
   push(a, key[2])
   push(a, key[3])
   push(a, key[4])
-  for i = 1, pl do
+  for i = 1, plen do
     push(a, bxor(byte(payload, i), key[(i - 1) % 4 + 1]))
   end
   a = table_to_string(a)
   self:write(a, callback)
+end
+
+local FFI = require('ffi')
+FFI.cdef[[
+void encode(uint8_t *buf, uint32_t len);
+]]
+local Codec = FFI.load(__dirname .. '/hybi10.luvit')
+
+local function sender1(self, payload, callback)
+  local plen = #payload
+  local str = (' '):rep(plen < 126 and 6 or (plen < 65536 and 8 or 14)) .. payload
+  --local buf = FFI.new("uint8_t[?]", #str)
+  local buf = FFI.cast('unsigned char *', str)
+  p('A', buf)
+  Codec.encode(buf, plen)
+  p('B', buf)
+  self:write(buf, callback)
+end
+
+local encode = require('./hybi10.luvit').encode
+
+local function sender(self, payload, callback)
+  local plen = #payload
+  local str = (' '):rep(plen < 126 and 6 or (plen < 65536 and 8 or 14)) .. payload
+  encode(str, plen)
+  p('ENC', str)
+  self:write(str, callback)
 end
 
 local receiver

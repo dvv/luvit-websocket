@@ -30,4 +30,4 @@ for i = 0, 255 do for j = 0, 255 do
   --print(i, j)
   s65536 = s65536 .. String.char(i) .. String.char(j)
 end end
-send_receive(s65536, 'all chars')
+--send_receive(s65536, 'all chars')
