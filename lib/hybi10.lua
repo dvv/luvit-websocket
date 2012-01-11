@@ -1,6 +1,5 @@
 local Utils = require('utils')
 local Crypto = require('crypto')
-local Math = require('math')
 
 local band, bor, bxor, rshift, lshift
 do
@@ -43,15 +42,7 @@ local push = Table.insert
 
 local function verify_secret(key)
   local data = (match(key, '(%S+)')) .. '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
-  local dg = Crypto.get_digest('sha1'):init()
-  dg:update(data)
-  local r = dg:final()
-  dg:cleanup()
-  return r
-end
-
-local function rand256()
-  return Math.floor(Math.random() * 256)
+  return Crypto.sha1(data, true)
 end
 
 -- Lua has no mutable string. Workarounds are slow too.
