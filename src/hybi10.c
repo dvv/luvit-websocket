@@ -25,6 +25,7 @@
 static int encode(lua_State *L) {
 
   uint8_t *p = (uint8_t *)luaL_checkstring(L, 1);
+  // FIXME: checklong?
   uint32_t len = luaL_checkint(L, 2);
 
   uint32_t i;
@@ -71,18 +72,23 @@ static int encode(lua_State *L) {
 
 static int mask(lua_State *L) {
 
-  uint8_t *p = (uint8_t *)luaL_checkstring(L, 1);
-  uint8_t *key = (uint8_t *)luaL_checkstring(L, 2);
+  //uint8_t *p = (uint8_t *)luaL_checkstring(L, 1);
+  const char *p = luaL_checkstring(L, 1);
+  const char *key = luaL_checkstring(L, 2);
+  // FIXME: checklong?
   uint32_t len = luaL_checkint(L, 3);
 
   // mask buffer content
   uint32_t i, ki;
   for (i = 0, ki = 0; i < len; ++i) {
-    p[i] ^= key[ki];
+    ((uint8_t *)p)[i] ^= key[ki];
     if (++ki > 3) ki = 0;
   }
 
-  return 0;
+  lua_pushstring(L, p);
+  return 1;
+
+  //return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

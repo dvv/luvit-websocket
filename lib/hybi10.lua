@@ -154,7 +154,7 @@ receiver = function (self, chunk)
   local payload = sub(buf, l + 1, l + length)
   -- unmask if masked
   if masking then
-    Codec.mask(payload, sub(buf, l - 3, l), length)
+    payload = Codec.mask(payload, sub(buf, l - 3, l), length)
   end
   -- consume data
   self.buffer = sub(buf, l + length + 1)
