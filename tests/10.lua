@@ -13,12 +13,7 @@ function send_receive(orig, assert_message)
     end,
     emit = function (self, event, data, ...)
       --p('RECV', data, orig, #data, #orig)
-      --[[
       if orig ~= data then
-        print('FAILED: ' .. assert_message)
-        process.exit(1)
-      end]]--
-      if #orig ~= #data then
         print('FAILED: ' .. assert_message)
         process.exit(1)
       end
