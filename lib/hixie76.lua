@@ -1,3 +1,4 @@
+local Utils = require('utils')
 local Crypto = require('crypto')
 local rshift = require('bit').rshift
 
@@ -18,7 +19,7 @@ local function verify_secret(req_headers, nonce)
     return false
   end
   local data = ''
-  for _, k in { k1, k2 } do
+  for _, k in ipairs({ k1, k2 }) do
     local n = tonumber((gsub(k, '[^%d]', '')), 10)
     local spaces = #(gsub(k, '[^ ]', ''))
     if spaces == 0 or n % spaces ~= 0 then
@@ -53,11 +54,11 @@ receiver = function (self, chunk)
   -- wait for data
   if #buf == 0 then return end
   -- message starts with 0x00
-  if byte(buf, 1) == 0 then
+  if byte(buf, 1) == 0x00 then
     -- and lasts
     for i = 2, #buf do
       -- until 0xFF
-      if byte(buf, i) == 255 then
+      if byte(buf, i) == 0xFF then
         -- extract payload
         local payload = sub(buf, 2, i - 1)
         -- consume data
@@ -73,7 +74,7 @@ receiver = function (self, chunk)
     end
   -- close frame is sequence of 0xFF, 0x00
   else
-    if byte(buf, 1) == 255 and byte(buf, 2) == 0 then
+    if byte(buf, 1) == 0xFF and byte(buf, 2) == 0x00 then
       self:emit('error')
     -- other sequences signify broken framimg
     else
@@ -121,7 +122,7 @@ local function handshake(self, origin, location, callback)
         end
         self.sec = nil
         -- setup receiver
-        self.buffer = ''
+        self.buffer = data
         self.req:on('data', Utils.bind(self, receiver))
         -- register connection
         self:write(reply)
