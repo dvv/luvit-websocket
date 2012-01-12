@@ -226,19 +226,14 @@ local function WebSocket_handler(options)
     end
 
     res:nodelay(true)
-    --res.protocol = 'websocket'
+    res.protocol = 'websocket'
     -- provide request accessor, to reduce the number of closures
     res.req = req
-
-    -- support engine.io?
-    if options.engine then
-      p('REQ', req)
-    end
 
     -- handshake...
     shaker(res, origin, location, function ()
       -- and register connection
-      local conn = Connection.new(res, options)
+      local conn = (options.new or Connection.new)(res, options)
     end)
 
   end
