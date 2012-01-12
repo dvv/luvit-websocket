@@ -230,6 +230,11 @@ local function WebSocket_handler(options)
     -- provide request accessor, to reduce the number of closures
     res.req = req
 
+    -- support engine.io?
+    if options.engine then
+      p('REQ', req)
+    end
+
     -- handshake...
     shaker(res, origin, location, function ()
       -- and register connection

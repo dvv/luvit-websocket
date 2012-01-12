@@ -1,17 +1,11 @@
 local Utils = require('utils')
 local Crypto = require('crypto')
 
-local band, bor, bxor, rshift, lshift
-do
-  local _table_0 = require('bit')
-  band, bor, bxor, rshift, lshift = _table_0.band, _table_0.bor, _table_0.bxor, _table_0.rshift, _table_0.lshift
-end
+local Bit = require('bit')
+local band, bor, bxor, rshift, lshift = Bit.band, Bit.bor, Bit.bxor, Bit.rshift, Bit.lshift
 
-local sub, gsub, match, byte, char
-do
-  local _table_0 = require('string')
-  sub, gsub, match, byte, char = _table_0.sub, _table_0.gsub, _table_0.match, _table_0.byte, _table_0.char
-end
+local String = require('string')
+local sub, gsub, match, byte, char = String.sub, String.gsub, String.match, String.byte, String.char
 
 local base64_table = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 local function base64(data)
