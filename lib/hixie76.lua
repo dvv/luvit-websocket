@@ -2,11 +2,8 @@ local Utils = require('utils')
 local Crypto = require('crypto')
 local rshift = require('bit').rshift
 
-local sub, gsub, match, byte, char
-do
-  local _table_0 = require('string')
-  sub, gsub, match, byte, char = _table_0.sub, _table_0.gsub, _table_0.match, _table_0.byte, _table_0.char
-end
+local String = require('string')
+local sub, gsub, match, byte, char = String.sub, String.gsub, String.match, String.byte, String.char
 
 --
 -- verify connection secret
