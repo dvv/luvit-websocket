@@ -220,7 +220,6 @@ local function WebSocket_handler(options)
     location = location .. '://' .. req.headers.host .. req.url
     -- determine protocol version
     local ver = req.headers['sec-websocket-version']
-    res.ver = ver
     local shaker = hixie76
     if ver == '7' or ver == '8' or ver == '13' then
       shaker = hybi10
