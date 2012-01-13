@@ -58,7 +58,8 @@ local function sender(self, payload, callback)
   -- encode the payload
   Codec.encode(str, plen)
   -- put data on wire
-  self:write(str, callback)
+  local fn = self.write_frame or self.write
+  fn(self, str, callback)
 end
 
 --
