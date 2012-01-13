@@ -56,10 +56,11 @@ local function sender(self, payload, callback)
   -- compose the out buffer
   local str = (' '):rep(plen < 126 and 6 or (plen < 65536 and 8 or 14)) .. payload
   -- encode the payload
+  -- TODO: knowing plen we can create prelude separately from payload
+  -- hence avoid concat
   Codec.encode(str, plen)
   -- put data on wire
-  local fn = self.write_frame or self.write
-  fn(self, str, callback)
+  self:write(str, callback)
 end
 
 --
@@ -186,16 +187,13 @@ local function handshake(self, origin, location, callback)
 
   -- ack connection
   local protocol = self.req.headers['sec-websocket-protocol']
-  if protocol then
-    protocol = (match(protocol, '[^,]*'))
-  end
+  if protocol then protocol = (match(protocol, '[^,]*')) end
   self:write_head(101, {
     ['Upgrade'] = 'WebSocket',
     ['Connection'] = 'Upgrade',
     ['Sec-WebSocket-Accept'] = base64(verify_secret(self.req.headers['sec-websocket-key'])),
     ['Sec-WebSocket-Protocol'] = protocol
   })
-
   self.has_body = true
 
   -- setup receiver

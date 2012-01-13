@@ -1,14 +1,18 @@
 #!/usr/bin/env luvit
 
 local handle_websocket = require('./')({
+  new = function (res, options)
+    p('NEW', res, options)
+    local conn = require('./lib/connection').new(res, options)
+  end,
   onopen = function (conn)
     p('OPEN', conn)
   end,
   onclose = function (conn)
     p('CLOSE', conn)
   end,
-  onerror = function (conn, error)
-    p('ERROR', conn, error)
+  onerror = function (conn, err)
+    p('ERROR', conn, err)
   end,
   onmessage = function (conn, message)
     p('<<<', message)
