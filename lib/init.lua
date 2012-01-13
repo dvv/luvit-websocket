@@ -22,6 +22,7 @@ local function WebSocket_handler(options)
 
   -- defaults
   if not options then options = { } end
+  assert(type(options.new) == 'function', 'Must provide connection constructor in options.new')
 
   -- handler
   return function (req, res, nxt)

@@ -76,15 +76,10 @@ receiver = function (self, chunk)
   if #self.buffer < 2 then return end
   local buf = self.buffer
 
-  local status = nil
-  local reason = nil
-
-  -- frame should have 'finalized' flag set
-  -- TODO: fragments!
+  -- full frame should have 'finalized' flag set
   local first = band(byte(buf, 2), 0x7F)
   if band(byte(buf, 1), 0x80) ~= 0x80 then
-    self:emit('error', 1002, 'Fin flag not set')
-    return 
+    return
   end
 
   -- get frame type
@@ -92,13 +87,13 @@ receiver = function (self, chunk)
   local opcode = band(byte(buf, 1), 0x0F)
   if opcode ~= 1 and opcode ~= 8 then
     self:emit('error', 1002, 'not a text nor close frame')
-    return 
+    return
   end
 
   -- reject too lenghty close frames
   if opcode == 8 and first >= 126 then
     self:emit('error', 1002, 'wrong length for close frame')
-    return 
+    return
   end
 
   local l = 0
@@ -165,6 +160,8 @@ receiver = function (self, chunk)
     receiver(self)
   -- close frame
   elseif opcode == 8 then
+    local status = nil
+    local reason = nil
     -- contains 2-octet status
     if #payload >= 2 then
       status = bor(lshift(byte(payload, 1), 8), byte(payload, 2))

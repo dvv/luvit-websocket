@@ -6,18 +6,20 @@ local Table = require('table')
 local Utils = require('utils')
 local Timer = require('timer')
 
-local Connection = { }
+local Connection = {
+  CONNECTING = 0,
+  OPEN = 1,
+  CLOSING = 2,
+  CLOSED = 3,
+}
+
 Utils.inherits(Connection, { })
 
 local default_options = {
-  onopen = function (self)
-  end,
-  onclose = function (self)
-  end,
-  onerror = function (self, error)
-  end,
-  onmessage = function (self, message)
-  end,
+  onopen = function (self) end,
+  onclose = function (self) end,
+  onerror = function (self, error) end,
+  onmessage = function (self, message) end,
 }
 
 --
@@ -27,7 +29,7 @@ local default_options = {
 function Connection.new(response, options)
   self = Connection.new_obj()
   self.options = setmetatable(options or { }, { __index = default_options })
-  self.readyState = 0
+  self.readyState = Connection.CONNECTING
   self._send_queue = { }
   if response then
     self:_bind(response)
@@ -41,7 +43,7 @@ end
 
 function Connection.prototype:send(message)
   -- can only send to open connection
-  if self.readyState ~= 1 then return false end
+  if self.readyState ~= Connection.OPEN then return false end
   -- put message in outgoing buffer
   Table.insert(self._send_queue, message)
   -- shedule flushing
@@ -55,11 +57,11 @@ end
 
 function Connection.prototype:close(status, reason)
   -- can close only open connection
-  if self.readyState == 1 then
+  if self.readyState == Connection.OPEN then
     -- try to flush
     self:_flush()
     -- mark connection as closing
-    self.readyState = 2
+    self.readyState = Connection.CLOSING
     -- upon sending close frame...
     -- FIXME: honor status and reason
     self:_packet('close', nil, function ()
@@ -116,7 +118,7 @@ function Connection.prototype:_bind(response)
   -- send opening frame...
   self:_packet('open', nil, function ()
     -- and report connection is open
-    self.readyState = 1
+    self.readyState = Connection.OPEN
     self.options.onopen(self)
   end)
 
@@ -128,7 +130,7 @@ end
 
 function Connection.prototype:_unbind()
   if self.res then
-    self.readyState = 3
+    self.readyState = Connection.CLOSED
     self.options.onclose(self)
     self.res = nil
   end
@@ -146,7 +148,7 @@ function Connection.prototype:_flush()
     -- FIXME: should error occur, _send_queue is just missed...
     self:_packet('message', self._send_queue, function ()
       -- remove `nmessages` first messages
-      -- TODO: any way to remove multiple?
+      -- TODO: any way to remove multiple, to inhibit reindexings?
       for i = 1, nmessages do Table.remove(self._send_queue, 1) end
       self._flushing = nil
     end)
