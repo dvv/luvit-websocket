@@ -15,6 +15,15 @@ local function verify_origin(origin, origins)
 end
 
 --
+-- 
+--
+
+local function respond(res, code, reason)
+  res:set_code(code)
+  res:finish(reason)
+end
+
+--
 -- WebSocket middleware
 --
 
@@ -32,14 +41,14 @@ local function WebSocket_handler(options)
 
     -- request sanity check
     if (req.headers.upgrade or ''):lower() ~= 'websocket' then
-      return res:send(400, 'Bad Request')
+      return respond(res, 400)
     end
     if not (',' .. (req.headers.connection or ''):lower() .. ','):match('[^%w]+upgrade[^%w]+') then
-      return res:send(400, 'Bad Request')
+      return respond(res, 400)
     end
     local origin = req.headers.origin
     if not verify_origin(origin, options.origins) then
-      return res:send(401, 'Unauthorized')
+      return respond(res, 401)
     end
 
     -- guess the protocol
