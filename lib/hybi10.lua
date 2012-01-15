@@ -63,6 +63,17 @@ local function sender(self, payload, callback)
   self:write(str, callback)
 end
 
+local function sender_test(self, payload, callback)
+  local plen = #payload
+  -- write prelude
+  local prelude = (' '):rep(plen < 126 and 6 or (plen < 65536 and 8 or 14))
+  Codec.encode(prelude, 0)
+  self:write(prelude)
+  -- mask and write payload
+  Codec.mask(payload, sub(prelude, -4, -1), plen)
+  self:write(payload, callback)
+end
+
 --
 -- extract complete message frames from incoming data
 --

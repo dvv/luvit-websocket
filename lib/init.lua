@@ -39,13 +39,15 @@ local function WebSocket_handler(options)
     -- turn chunking mode off
     res.auto_chunked = false
 
-    -- request sanity check
+    -- request looks like WebSocket one?
     if (req.headers.upgrade or ''):lower() ~= 'websocket' then
       return respond(res, 400)
     end
     if not (',' .. (req.headers.connection or ''):lower() .. ','):match('[^%w]+upgrade[^%w]+') then
       return respond(res, 400)
     end
+
+    -- request has come from allowed origin?
     local origin = req.headers.origin
     if not verify_origin(origin, options.origins) then
       return respond(res, 401)

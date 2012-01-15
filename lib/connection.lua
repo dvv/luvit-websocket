@@ -20,7 +20,20 @@ local default_options = {
   onclose = function (self) end,
   onerror = function (self, error) end,
   onmessage = function (self, message) end,
+  disconnect_delay = 5000,
 }
+
+--
+-- connections table
+--
+
+local connections = { }
+-- TODO: strip
+_G.c = connections
+_G.cl = function (...)
+  connections['1']:close(...)
+end
+local nconn = 0
 
 --
 -- create new connection
@@ -28,13 +41,25 @@ local default_options = {
 
 function Connection.new(response, options)
   self = Connection.new_obj()
+  -- TODO: add entropy
+  nconn = nconn + 1
+  self.id = tostring(nconn)
   self.options = setmetatable(options or { }, { __index = default_options })
   self.readyState = Connection.CONNECTING
+  connections[self.id] = self
   self._send_queue = { }
   if response then
     self:_bind(response)
   end
   return self
+end
+
+--
+-- get existing connection by id
+--
+
+function Connection.get(id)
+  return connections[id]
 end
 
 --
@@ -55,26 +80,23 @@ end
 -- orderly close the connection
 --
 
-function Connection.prototype:close(status, reason)
-  -- can close only open connection
-  if self.readyState == Connection.OPEN then
+function Connection.prototype:close(code, reason)
+  -- can close only open[ing] connection
+  if self.readyState < Connection.CLOSING then
     -- try to flush
     self:_flush()
     -- mark connection as closing
     self.readyState = Connection.CLOSING
     -- upon sending close frame...
-    -- FIXME: honor status and reason
-    self:_packet('close', nil, function ()
+    self:_packet('close', { code, reason }, function ()
       -- finish the response
       -- N.B. this will trigger res:on('closed') which will
       -- unbind response from connection,
       -- mark connection as in closed state
       -- and report application of connection closure
-      self.res:finish()
+      if self.res then self.res:finish() end
     end)
-    return true
   end
-  return false
 end
 
 --
@@ -82,6 +104,16 @@ end
 --
 
 function Connection.prototype:_bind(response)
+
+  -- disallow binding more than one response
+  if self.res then
+    response:finish()
+    return
+  end
+
+p('BIND', self.id)
+
+  -- bind response
   self.res = response
 
   -- any error in req closes the request
@@ -96,10 +128,10 @@ function Connection.prototype:_bind(response)
 
   -- any error in res closes the response,
   -- causing client unbind
-  response:on('error', function (err, reason)
+  response:once('error', function (err, reason)
     -- number errors are soft WebSocket protocol errors
     -- N.B. no error here means connection is closed orderly
-    if type(err) == 'number' then
+    if type(err) == 'number' and err ~= 1000 then
       self.options.onerror(self, err, reason)
     -- hard error
     else
@@ -113,15 +145,26 @@ function Connection.prototype:_bind(response)
     self.options.onmessage(self, message)
   end)
 
-  -- augment response with helpers
-  response.write_frame = write_frame
-  -- send opening frame...
-  self:_packet('open', nil, function ()
-    -- and report connection is open
-    self.readyState = Connection.OPEN
-    self.options.onopen(self)
-  end)
+  -- send opening frame for new connections
+  if self.readyState == Connection.CONNECTING then
+    -- TODO: send various options
+    self:_packet('open', nil, function ()
+      -- and report connection is open
+      self.readyState = Connection.OPEN
+      Timer.set_timeout(0, function () self.options.onopen(self) end)
+    end)
+  end
 
+end
+
+--
+-- disconnect the connection
+--
+
+function Connection.prototype:disconnect()
+  -- mark connection as closing
+  self.readyState = Connection.CLOSING
+  if self.res then self.res:finish() end
 end
 
 --
@@ -129,10 +172,32 @@ end
 --
 
 function Connection.prototype:_unbind()
+  --[[if self._timeout then
+    Timer.clear_timer(self._timeout)
+    self._timeout = nil
+  end]]--
   if self.res then
-    self.readyState = Connection.CLOSED
-    self.options.onclose(self)
+p('UNBIND', self.id)
     self.res = nil
+    Timer.set_timeout(self.options.disconnect_delay, self._purge, self)
+  end
+end
+
+--
+-- purge the connection
+--
+
+function Connection.prototype:_purge()
+  if self.res or self.readyState > Connection.CLOSING then
+    -- FIXME: this should not happen
+    return
+  end
+--p('PURGE', self.id)
+  self.readyState = Connection.CLOSED
+  self.options.onclose(self)
+  if self.id then
+    connections[self.id] = nil
+    self.id = nil
   end
 end
 
@@ -149,6 +214,7 @@ function Connection.prototype:_flush()
     self:_packet('message', self._send_queue, function ()
       -- remove `nmessages` first messages
       -- TODO: any way to remove multiple, to inhibit reindexings?
+      -- shift this to C?
       for i = 1, nmessages do Table.remove(self._send_queue, 1) end
       self._flushing = nil
     end)

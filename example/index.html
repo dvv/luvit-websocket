@@ -1,11 +1,36 @@
 <!doctype html>
 <html>
 <head>
-  <script src="jquery.min.js"></script>
-  <script src="jquery.gracefulWebSocket.js"></script>
+  <script src="req.js"></script>
 </head>
 <body>
   <script>
-var ws = $.gracefulWebSocket('ws://localhost:8080/ws');
+function log(a, b) { console.log('LOG', a, b) }
+var ws = new WebSocketXHR('ws://localhost:8080/WS')
+ws.onopen = function () {
+  log('OPEN', ws)
+}
+ws.onclose = function (ev) {
+  log('CLOSE', ev, ws)
+}
+ws.onerror = function (err) {
+  log('ERROR', err, ws)
+}
+ws.onmessage = function (message) {
+  log('MESSAGE', message.data)
+}
+var w = new WebSocket('ws://localhost:8080/ws')
+w.onopen = function () {
+  log('OPENW', w)
+}
+w.onclose = function (ev) {
+  log('CLOSEW', ev, w)
+}
+w.onerror = function (err) {
+  log('ERRORW', err, w)
+}
+w.onmessage = function (message) {
+  log('MESSAGEW', message.data)
+}
   </script>
 </body></html>
