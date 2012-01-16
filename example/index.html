@@ -19,6 +19,7 @@ ws.onerror = function (err) {
 ws.onmessage = function (message) {
   log('MESSAGE', message.data)
 }
+
 var w = new WebSocket('ws://localhost:8080/ws')
 w.onopen = function () {
   log('OPENW', w)

@@ -9,6 +9,7 @@ return function (options)
     -- get connection
     -- TODO: FIXXXX
     local id = req.url:sub(5)
+p('GETCONN', id)
     local conn = require('./connection').get(id)
 
     --

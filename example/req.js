@@ -1,5 +1,6 @@
 (function (global, undefined) {
-var isIE8 = global.XDomainRequest ? true : false
+
+var isIE8 = false;//global.XDomainRequest ? true : false
 
 //
 // decode urlencoded string
@@ -33,19 +34,25 @@ function createXHR() {
   throw new Error('Could not find XMLHttpRequest or an alternative.');
 }
 
+function noop() {}
+
 function request(url, method, data, callback) {
   var req = isIE8 ? new global.XDomainRequest() : createXHR()
   if (isIE8) {
-    req.onload = function (result) {
-      callback(null, result)
+    req.onload = function () {
+      callback(null, req.responseText)
     }
-    req.onerror = callback
+    req.onerror = function (ev) {
+      callback({ code: req.status, message: req.statusText })
+    }
+    req.onprogress = noop
     req.open(method, url, true)
   } else {
     req.open(method, url, true)
     req.onreadystatechange = function () {
       if (req.readyState === 4) try {
-        if (req.status === 200) {
+        // 1223 is reported by MSIE for status 204: http://vegdave.wordpress.com/2007/11/05/1223-status-code-in-ie/
+        if (req.status === 200 || req.status === 204 || req.status === 1223) {
           callback(null, req.responseText)
         } else {
           // pass error
@@ -89,6 +96,8 @@ function WebSocketXHR(url, protocols) {
   var url = url.replace(/^ws/, 'http')
   var session = {}
   var recv = null
+  var send_queue = []
+  var flushing = false
 
   // close the socket
 
@@ -113,18 +122,11 @@ function WebSocketXHR(url, protocols) {
     // can't send to closed socket
     if (this.readyState >= WebSocketXHR.CLOSING) return false
     // POST data
-    // FIXME: bufferedAmount should cound UTF-8 chars
-    this.bufferedAmount += data.length
-    request(url, 'POST', data, function (err, result) {
-      // error
-      if (err) {
-        // ???
-      // OK
-      } else {
-        self.bufferedAmount -= data.length
-        // ???
-      }
-    })
+    this.bufferedAmount += 1
+    // put message in outgoing buffer
+    send_queue.push(data)
+    // shedule flushing
+    flush()
     return true
   }
 
@@ -161,6 +163,8 @@ function WebSocketXHR(url, protocols) {
     }, 0)
   }
 
+  // receive packets from remote end
+
   function receiver() {
     if (self.readyState > WebSocketXHR.OPEN) return
     recv = request(url, 'GET', null, function (err, result) {
@@ -183,9 +187,9 @@ function WebSocketXHR(url, protocols) {
           // message frame
           if (type === 'm:') {
             // report incoming message
-            setTimeout(function () {
+            //setTimeout(function () {
               fire('message', { data: data, origin: url })
-            }, 0)
+            //}, 0)
           // close frame
           } else if (type === 'c:') {
             // disconnect with wasClean: false
@@ -213,6 +217,41 @@ console.log('SESS', session)
         setTimeout(receiver, session.interval || 0)
       }
     })
+  }
+
+  // flush send queue
+
+  function flush() {
+console.log('FLUSH', flushing)
+    if (self.readyState !== WebSocketXHR.OPEN || flushing) return
+    var nmessages = send_queue.length
+    // TODO: limit?
+    if (nmessages > 0) {
+      // FIXME: should error occur, _send_queue is just missed...
+      var data = send_queue.slice(0, nmessages)
+      flushing = true
+      try {
+        request(url, 'POST', 'm:' + data, function (err, result) {
+console.log('POST', err, result)
+          // error
+          if (err) {
+            // ???
+          // OK
+          } else {
+            // remove `nmessages` first messages
+            send_queue.splice(0, nmessages)
+            flushing = false
+            // reflect bufferedAmount
+            self.bufferedAmount -= nmessages
+          }
+          // restart flusher
+          flush()
+          //setTimeout(flush, 0)
+        })
+      } catch(e) {
+        flushing = false
+      }
+    }
   }
 
   // start receiver
