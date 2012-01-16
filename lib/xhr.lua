@@ -1,10 +1,18 @@
 local Table = require('table')
+local OS = require('os')
 
 return function (options)
 
   return function (req, res)
 
     res.req = req
+
+    -- CORS
+    res:set_header('Access-Control-Allow-Credentials', 'true')
+    local origin = req.headers.origin or '*'
+    res:set_header('Access-Control-Allow-Origin', origin)
+    header = req.headers['access-control-request-headers']
+    if header then res:set_header('Access-Control-Allow-Headers', header) end
 
     -- get connection
     -- TODO: FIXXXX
@@ -120,6 +128,20 @@ p('GETCONN', id)
         res:finish()
 
       end
+
+    --
+    -- OPTIONS, for CORS
+    --
+
+    elseif req.method == 'OPTIONS' then
+
+      local cache_age = 365*24*60*60*1000
+      res:set_header('Allow-Control-Allow-Methods', 'OPTIONS, POST')
+      res:set_header('Cache-Control', 'public, max-age=' .. 365*24*60*60*1000)
+      res:set_header('Expires', OS.date('%c', OS.time() + cache_age))
+      res:set_header('Access-Control-Max-Age', tostring(cache_age))
+      res:set_code(204)
+      res:finish()
 
     --
     -- invalid verb

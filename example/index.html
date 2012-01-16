@@ -5,8 +5,17 @@
 </head>
 <body>
   <script>
-function log(a, b) { console.log('LOG', a, b) }
-var ws = new WebSocketXHR('ws://localhost:8080/WS')
+function log(a, b) {
+  if (typeof window.console !== 'undefined') {
+    console.log('LOG', a, b)
+  } else {
+    var args = Array.prototype.slice.call(arguments)
+    for (var i = 0; i < args.length; ++i) {
+      document.write(args[i] + '<br/>')
+    }
+  }
+}
+var ws = new WebSocketXHR('ws://172.23.231.32:8080/WS')
 ws.onopen = function () {
   log('OPEN', ws)
 }
@@ -20,7 +29,7 @@ ws.onmessage = function (message) {
   log('MESSAGE', message.data)
 }
 
-var w = new WebSocket('ws://localhost:8080/ws')
+/*var w = new WebSocket('ws://localhost:8080/ws')
 w.onopen = function () {
   log('OPENW', w)
 }
@@ -32,6 +41,6 @@ w.onerror = function (err) {
 }
 w.onmessage = function (message) {
   log('MESSAGEW', message.data)
-}
+}*/
   </script>
 </body></html>

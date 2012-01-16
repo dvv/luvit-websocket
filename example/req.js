@@ -1,6 +1,6 @@
 (function (global, undefined) {
 
-var isIE8 = false;//global.XDomainRequest ? true : false
+var isIE8 = global.XDomainRequest ? true : false
 
 //
 // decode urlencoded string
@@ -39,6 +39,8 @@ function noop() {}
 function request(url, method, data, callback) {
   var req = isIE8 ? new global.XDomainRequest() : createXHR()
   if (isIE8) {
+    // TODO: disable caching by appending ?t=nonce
+    // TODO: window.onunload -- nullify onload, onerror, ontimeout, onprogress and try/catch abort()
     req.onload = function () {
       callback(null, req.responseText)
     }
@@ -46,8 +48,9 @@ function request(url, method, data, callback) {
       callback({ code: req.status, message: req.statusText })
     }
     req.onprogress = noop
-    req.open(method, url, true)
+    req.open(method, url)
   } else {
+    if ('withCredentials' in req) try { req.withCredentials = true } catch (e) {}
     req.open(method, url, true)
     req.onreadystatechange = function () {
       if (req.readyState === 4) try {
@@ -102,7 +105,6 @@ function WebSocketXHR(url, protocols) {
   // close the socket
 
   this.close = function (code, reason) {
-  console.log('CLOSE', code, reason)
     // sanity check
     if (code && !(code === 1000 || (code >= 3000 && code < 5000))) throw 'InvalidStateError'
     if (this.readyState >= WebSocketXHR.CLOSING) return
@@ -133,7 +135,7 @@ function WebSocketXHR(url, protocols) {
   // helpers
 
   function fire(name, props) {
-    //console.log('EV', name, props)
+//console.log('EV', name, props)
     // event handler defined?
     if (typeof self['on' + name] === 'function') {
       // compose event
@@ -145,7 +147,7 @@ function WebSocketXHR(url, protocols) {
         for (var i in props) if (props[i] !== undefined) ev[i] = props[i]
       }
       // invoke event handler
-      //console.log('EV!', name, ev)
+//console.log('EV!', name, ev)
       try { self['on' + name](ev) } catch(e) {}
     }
   }
@@ -222,7 +224,7 @@ console.log('SESS', session)
   // flush send queue
 
   function flush() {
-console.log('FLUSH', flushing)
+//console.log('FLUSH', flushing)
     if (self.readyState !== WebSocketXHR.OPEN || flushing) return
     var nmessages = send_queue.length
     // TODO: limit?
@@ -232,7 +234,6 @@ console.log('FLUSH', flushing)
       flushing = true
       try {
         request(url, 'POST', 'm:' + data, function (err, result) {
-console.log('POST', err, result)
           // error
           if (err) {
             // ???
