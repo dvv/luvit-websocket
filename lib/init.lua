@@ -69,7 +69,7 @@ local function WebSocket_handler(options)
     res.req = req
 
     -- handshake...
-    shaker(res, origin, location, function ()
+    shaker(req, res, origin, location, function ()
       -- and register connection
       local conn = options.new(res, options)
     end)

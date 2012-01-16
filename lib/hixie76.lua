@@ -84,16 +84,16 @@ end
 -- initialize the channel
 --
 
-local function handshake(self, origin, location, callback)
+local function handshake(req, res, origin, location, callback)
 
   -- ack connection
-  self.sec = self.req.headers['sec-websocket-key1']
-  local prefix = self.sec and 'Sec-' or ''
-  local protocol = self.req.headers['sec-websocket-protocol']
+  res.sec = req.headers['sec-websocket-key1']
+  local prefix = res.sec and 'Sec-' or ''
+  local protocol = req.headers['sec-websocket-protocol']
   if protocol then
     protocol = (match(protocol, '[^,]*'))
   end
-  self:write_head(101, {
+  res:write_head(101, {
     ['Upgrade'] = 'WebSocket',
     ['Connection'] = 'Upgrade',
     [prefix .. 'WebSocket-Origin'] = origin,
@@ -101,35 +101,35 @@ local function handshake(self, origin, location, callback)
     ['Sec-WebSocket-Protocol'] = protocol,
   })
 
-  self.has_body = true
+  res.has_body = true
 
   -- verify connection
   local data = ''
-  self.req:once('data', function (chunk)
+  req:once('data', function (chunk)
     data = data .. chunk
-    if self.sec == false or #data >= 8 then
-      if self.sec then
+    if res.sec == false or #data >= 8 then
+      if res.sec then
         local nonce = sub(data, 1, 8)
         data = sub(data, 9)
-        local reply = verify_secret(self.req.headers, nonce)
+        local reply = verify_secret(req.headers, nonce)
         -- close unless verified
         if not reply then
-          self:emit('error')
+          res:emit('error')
           return
         end
-        self.sec = nil
+        res.sec = nil
         -- setup receiver
-        self.buffer = data
-        self.req:on('data', Utils.bind(self, receiver))
+        res.buffer = data
+        req:on('data', Utils.bind(res, receiver))
         -- register connection
-        self:write(reply)
+        res:write(reply)
         if callback then callback() end
       end
     end
   end)
 
   -- setup sender
-  self.send = sender
+  res.send = sender
 
 end
 

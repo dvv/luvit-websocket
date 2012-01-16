@@ -184,20 +184,20 @@ function WebSocketXHR(url, protocols) {
       } else {
         // N.B. we skip empty messages, they are heartbeats
         if (result) {
-          var type = result.substring(0, 2)
-          var data = result.substring(2)
+          var type = result.substring(0, 1)
+          var data = result.substring(1)
           // message frame
-          if (type === 'm:') {
+          if (type === 'm') {
             // report incoming message
             //setTimeout(function () {
               fire('message', { data: data, origin: url })
             //}, 0)
           // close frame
-          } else if (type === 'c:') {
+          } else if (type === 'c') {
             // disconnect with wasClean: false
             disconnect(false)
           // open frame
-          } else if (type === 'o:') {
+          } else if (type === 'o') {
             // data is session
             // parse session as urlencoded
             session = urldecode(data)
@@ -233,7 +233,7 @@ console.log('SESS', session)
       var data = send_queue.slice(0, nmessages)
       flushing = true
       try {
-        request(url, 'POST', 'm:' + data, function (err, result) {
+        request(url, 'POST', 'm' + data, function (err, result) {
           // error
           if (err) {
             // ???

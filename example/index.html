@@ -15,32 +15,39 @@ function log(a, b) {
     }
   }
 }
-var ws = new WebSocketXHR('ws://172.23.231.32:8080/WS')
+var ws = new WebSocketXHR('ws://localhost:8080/WS')
 ws.onopen = function () {
-  log('OPEN', ws)
+  log('OPENX', ws)
 }
 ws.onclose = function (ev) {
-  log('CLOSE', ev, ws)
+  log('CLOSEX', ev, ws)
 }
 ws.onerror = function (err) {
-  log('ERROR', err, ws)
+  log('ERRORX', err, ws)
 }
 ws.onmessage = function (message) {
+  log('MESSAGEX', message.data)
+}
+
+var w = new WebSocket('ws://localhost:8080/ws')
+w.onopen = function () {
+  log('OPEN', w)
+}
+w.onclose = function (ev) {
+  log('CLOSE', ev, w)
+}
+w.onerror = function (err) {
+  log('ERROR', err, w)
+}
+w.onmessage = function (message) {
   log('MESSAGE', message.data)
 }
 
-/*var w = new WebSocket('ws://localhost:8080/ws')
-w.onopen = function () {
-  log('OPENW', w)
+sx = function (str) {
+  for (var i = 0; i < 10; ++i) ws.send(str || i)
 }
-w.onclose = function (ev) {
-  log('CLOSEW', ev, w)
+s = function (str) {
+  for (var i = 0; i < 10; ++i) w.send(str || i)
 }
-w.onerror = function (err) {
-  log('ERRORW', err, w)
-}
-w.onmessage = function (message) {
-  log('MESSAGEW', message.data)
-}*/
   </script>
 </body></html>

@@ -42,10 +42,10 @@ p('GETCONN', id)
       -- data collected
       req:on('end', function ()
         -- get frame type
-        local t = data:sub(1, 2)
-        local payload = data:sub(3)
+        local t = data:sub(1, 1)
+        local payload = data:sub(2)
         -- close frame?
-        if t == 'c:' then
+        if t == 'c' then
           local i, j = payload:find('^%d+')
           local code, reason
           if i then
@@ -60,7 +60,7 @@ p('GETCONN', id)
           -- disconnect
           conn:disconnect()
         -- message frame
-        elseif t == 'm:' then
+        elseif t == 'm' then
           conn.options.onmessage(conn, payload)
         -- unknown frame. ignore
         else
@@ -103,14 +103,14 @@ p('GETCONN', id)
         conn._packet = function (self, ptype, pdata, callback)
 --p('PACKET', ptype, pdata)
           if ptype == 'message' then
-            self.res:send('m:' .. Table.concat(pdata, ','), callback)
+            self.res:send('m' .. Table.concat(pdata, ','), callback)
           elseif ptype == 'open' then
-            local s = 'o:'
+            local s = 'o'
             -- TODO: urlencode pdata
             s = s .. 'id=' .. self.id .. '&interval=10'
             self.res:send(s, callback)
           elseif ptype == 'close' then
-            local s = 'c:'
+            local s = 'c'
             self.res:send(s, callback)
           elseif callback then
             callback()

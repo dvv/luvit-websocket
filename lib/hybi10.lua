@@ -191,24 +191,24 @@ end
 -- initialize the channel
 --
 
-local function handshake(self, origin, location, callback)
+local function handshake(req, res, origin, location, callback)
 
   -- ack connection
-  local protocol = self.req.headers['sec-websocket-protocol']
+  local protocol = req.headers['sec-websocket-protocol']
   if protocol then protocol = (match(protocol, '[^,]*')) end
-  self:write_head(101, {
+  res:write_head(101, {
     ['Upgrade'] = 'WebSocket',
     ['Connection'] = 'Upgrade',
-    ['Sec-WebSocket-Accept'] = base64(verify_secret(self.req.headers['sec-websocket-key'])),
+    ['Sec-WebSocket-Accept'] = base64(verify_secret(req.headers['sec-websocket-key'])),
     ['Sec-WebSocket-Protocol'] = protocol
   })
-  self.has_body = true
+  res.has_body = true
 
   -- setup receiver
-  self.buffer = ''
-  self.req:on('data', Utils.bind(self, receiver))
+  res.buffer = ''
+  req:on('data', Utils.bind(res, receiver))
   -- setup sender
-  self.send = sender
+  res.send = sender
 
   -- register connection
   if callback then callback() end

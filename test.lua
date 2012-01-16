@@ -43,7 +43,7 @@ local handle_static = require('static')('/', {
 })
 
 require('http').create_server('0.0.0.0', 8080, function (req, res)
-  p('REQ', req.method, req.url, req.headers)
+  --p('REQ', req.method, req.url, req.headers)
   if req.url:sub(1, 3) == '/ws' then
     handle_websocket(req, res)
   elseif req.url:sub(1, 3) == '/WS' then

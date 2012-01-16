@@ -33,6 +33,11 @@ _G.c = connections
 _G.cl = function (...)
   connections['1']:close(...)
 end
+_G.s = function (...)
+  for _, co in pairs(connections) do
+    co:send(...)
+  end
+end
 local nconn = 0
 
 --
@@ -130,13 +135,13 @@ p('ERRINREQ', err)
   -- any error in res closes the response,
   -- causing client unbind
   response:once('error', function (err, reason)
-p('ERR', err)
     -- number errors are soft WebSocket protocol errors
     -- N.B. no error here means connection is closed orderly
     if type(err) == 'number' and err ~= 1000 then
       self.options.onerror(self, err, reason)
     -- hard error
-    else
+    elseif err then
+p('ERR', err)
       -- TODO: implement?
     end
     response:finish()
@@ -211,25 +216,6 @@ end
 --
 -- flush outgoing buffer
 --
-
-function Connection.prototype:_flush________________________________()
-  if self._flushing then return end
-  local nmessages = #self._send_queue
-  if nmessages > 0 then
-    self._flushing = true
-    -- FIXME: should error occur, _send_queue is just missed...
-    self:_packet('message', self._send_queue, function ()
-      -- remove `nmessages` first messages
-      -- TODO: any way to remove multiple, to inhibit reindexings?
-      -- shift this to C?
-      for i = 1, nmessages do Table.remove(self._send_queue, 1) end
-      self._flushing = false
-      -- reshedule flushing
-      --self:_flush()
-      Timer.set_timeout(0, self._flush, self)
-    end)
-  end
-end
 
 function Connection.prototype:_flush()
   if self._flushing then return end
