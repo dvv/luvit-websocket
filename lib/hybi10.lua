@@ -211,7 +211,7 @@ local function handshake(req, res, origin, location, callback)
   res.send = sender
 
   -- register connection
-  if callback then callback() end
+  if callback then callback(res) end
 
 end
 

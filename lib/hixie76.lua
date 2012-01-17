@@ -123,7 +123,7 @@ local function handshake(req, res, origin, location, callback)
         req:on('data', Utils.bind(res, receiver))
         -- register connection
         res:write(reply)
-        if callback then callback() end
+        if callback then callback(res) end
       end
     end
   end)

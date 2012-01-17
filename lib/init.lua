@@ -27,14 +27,14 @@ end
 -- WebSocket middleware
 --
 
-local function WebSocket_handler(options)
+local function WebSocket_handler(options, register)
 
   -- defaults
   if not options then options = { } end
-  assert(type(options.new) == 'function', 'Must provide connection constructor in options.new')
+  assert(type(register) == 'function', 'Must provide connection constructor as second argument')
 
   -- handler
-  return function (req, res, nxt)
+  return function (req, res)
 
     -- turn chunking mode off
     res.auto_chunked = false
@@ -65,14 +65,10 @@ local function WebSocket_handler(options)
 
     -- disable buffering
     res:nodelay(true)
-    -- provide request accessor, to reduce the number of closures
-    res.req = req
+    -- ??? timeout(0)?
 
-    -- handshake...
-    shaker(req, res, origin, location, function ()
-      -- and register connection
-      local conn = options.new(res, options)
-    end)
+    -- handshake, then register
+    shaker(req, res, origin, location, register)
 
   end
 

@@ -3,11 +3,6 @@
 local Timer = require('timer')
 
 local WS = {
-  new = function (res, options)
-    p('NEW', res and res.req.url)
-    local conn = require('./lib/connection').new(res, options)
-    return conn
-  end,
   onopen = function (conn)
     p('OPEN', conn.id)
     --[[Timer.set_timeout(4000, function ()
@@ -34,7 +29,11 @@ local WS = {
   end,
 }
 
-local handle_websocket = require('./')(WS)
+local handle_websocket = require('./')(WS, function (res)
+  p('NEW')
+  local conn = require('./lib/connection').new(res, WS)
+  return conn
+end)
 local handle_xhrsocket = require('./lib/xhr')(WS)
 
 local handle_static = require('static')('/', {
