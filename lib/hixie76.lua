@@ -120,7 +120,7 @@ local function handshake(req, res, origin, location, callback)
         res.sec = nil
         -- setup receiver
         req.buffer = ''
-        req:on('data', Utils.bind(req, receiver))
+        req:on('data', Utils.bind(receiver, req))
         -- consume initial data
         req:emit('data', data)
         -- register connection

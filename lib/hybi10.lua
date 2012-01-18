@@ -201,7 +201,7 @@ local function handshake(req, res, origin, location, callback)
 
   -- setup receiver
   req.buffer = ''
-  req:on('data', Utils.bind(req, receiver))
+  req:on('data', Utils.bind(receiver, req))
   -- setup sender
   res.send = sender
 
