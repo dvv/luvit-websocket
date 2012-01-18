@@ -44,10 +44,10 @@ end
 --
 
 local receiver
-receiver = function (self, chunk)
+receiver = function (req, chunk)
   -- collect data chunks
-  if chunk then self.buffer = self.buffer .. chunk end
-  local buf = self.buffer
+  if chunk then req.buffer = req.buffer .. chunk end
+  local buf = req.buffer
   -- wait for data
   if #buf == 0 then return end
   -- message starts with 0x00
@@ -59,23 +59,23 @@ receiver = function (self, chunk)
         -- extract payload
         local payload = sub(buf, 2, i - 1)
         -- consume data
-        self.buffer = sub(buf, i + 1)
+        req.buffer = sub(buf, i + 1)
         -- emit event
         if #payload > 0 then
-          self:emit('message', payload)
+          req:emit('message', payload)
         end
         -- start over
-        receiver(self)
+        receiver(req)
         return
       end
     end
   -- close frame is sequence of 0xFF, 0x00
   else
     if byte(buf, 1) == 0xFF and byte(buf, 2) == 0x00 then
-      self:emit('error')
+      req:emit('error', 1000)
     -- other sequences signify broken framimg
     else
-      self:emit('error', 1002, 'Broken framing')
+      req:emit('error', 1002, 'Broken framing')
     end
   end
 end
@@ -119,11 +119,13 @@ local function handshake(req, res, origin, location, callback)
         end
         res.sec = nil
         -- setup receiver
-        res.buffer = data
-        req:on('data', Utils.bind(res, receiver))
+        req.buffer = ''
+        req:on('data', Utils.bind(req, receiver))
+        -- consume initial data
+        req:emit('data', data)
         -- register connection
         res:write(reply)
-        if callback then callback(res) end
+        if callback then callback(req, res) end
       end
     end
   end)

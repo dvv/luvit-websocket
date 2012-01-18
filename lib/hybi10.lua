@@ -79,13 +79,13 @@ end
 --
 
 local receiver
-receiver = function (self, chunk)
+receiver = function (req, chunk)
 
   -- collect data chunks
-  if chunk then self.buffer = self.buffer .. chunk end
+  if chunk then req.buffer = req.buffer .. chunk end
   -- wait for data
-  if #self.buffer < 2 then return end
-  local buf = self.buffer
+  if #req.buffer < 2 then return end
+  local buf = req.buffer
 
   -- full frame should have 'finalized' flag set
   local first = band(byte(buf, 2), 0x7F)
@@ -94,16 +94,11 @@ receiver = function (self, chunk)
   end
 
   -- get frame type
-  -- N.B. we support only text and close frames
   local opcode = band(byte(buf, 1), 0x0F)
-  if opcode ~= 1 and opcode ~= 8 then
-    self:emit('error', 1002, 'not a text nor close frame')
-    return
-  end
 
   -- reject too lenghty close frames
   if opcode == 8 and first >= 126 then
-    self:emit('error', 1002, 'wrong length for close frame')
+    req:emit('error', 1002, 'Wrong length for close frame')
     return
   end
 
@@ -159,16 +154,16 @@ receiver = function (self, chunk)
     payload = Codec.mask(payload, sub(buf, l - 3, l), length)
   end
   -- consume data
-  self.buffer = sub(buf, l + length + 1)
+  req.buffer = sub(buf, l + length + 1)
 
   -- message frame?
   if opcode == 1 then
     -- emit 'message' event
     if #payload > 0 then
-      self:emit('message', payload)
+      req:emit('message', payload)
     end
     -- and start over
-    receiver(self)
+    receiver(req)
   -- close frame
   elseif opcode == 8 then
     local status = nil
@@ -182,7 +177,7 @@ receiver = function (self, chunk)
       reason = sub(payload, 3)
     end
     -- report error. N.B. close is handled by error handler
-    self:emit('error', status, reason)
+    req:emit('error', status, reason)
   end
 
 end
@@ -205,13 +200,13 @@ local function handshake(req, res, origin, location, callback)
   res.has_body = true
 
   -- setup receiver
-  res.buffer = ''
-  req:on('data', Utils.bind(res, receiver))
+  req.buffer = ''
+  req:on('data', Utils.bind(req, receiver))
   -- setup sender
   res.send = sender
 
   -- register connection
-  if callback then callback(res) end
+  if callback then callback(req, res) end
 
 end
 
