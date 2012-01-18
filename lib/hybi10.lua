@@ -115,14 +115,14 @@ receiver = function (req, chunk)
   else
     if first == 126 then
       if #buf < 4 then
-        return 
+        return
       end
       length = bor(lshift(byte(buf, 3), 8), byte(buf, 4))
       l = 4
     else
       if first == 127 then
         if #buf < 10 then
-          return 
+          return
         end
         length = 0
         for i = 3, 10 do
@@ -137,13 +137,13 @@ receiver = function (req, chunk)
   if masking then
     -- frame should contain 4-octet mask
     if #buf < l + 4 then
-      return 
+      return
     end
     l = l + 4
   end
   -- frame should be completely available
   if #buf < l + length then
-    return 
+    return
   end
 
   -- extract payload
