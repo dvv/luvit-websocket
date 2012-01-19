@@ -53,25 +53,41 @@ local Codec = require('../build/hybi10.luvit')
 
 local function sender(self, payload, callback)
   local plen = #payload
-  -- compose the out buffer
-  local str = (' '):rep(plen < 126 and 6 or (plen < 65536 and 8 or 14)) .. payload
-  -- encode the payload
-  -- TODO: knowing plen we can create prelude separately from payload
-  -- hence avoid concat
-  Codec.encode(str, plen)
-  -- put data on wire
-  self:write(str, callback)
+  -- write prelude
+  local prelude = (' '):rep(plen < 126 and 2 or (plen < 65536 and 4 or 10))
+  Codec.encode(prelude, plen, 0)
+  self:write(prelude)
+  -- write payload
+  self:write(payload, callback)
 end
 
-local function sender_test(self, payload, callback)
+local function sender_NEW(self, payload, callback)
+--[[
   local plen = #payload
-  -- write prelude
-  local prelude = (' '):rep(plen < 126 and 6 or (plen < 65536 and 8 or 14))
-  Codec.encode(prelude, 0)
-  self:write(prelude)
-  -- mask and write payload
-  Codec.mask(payload, sub(prelude, -4, -1), plen)
-  self:write(payload, callback)
+  -- compose prelude
+  local p = { }
+  p[1] = 0x80 | 0x01
+
+  // compose header
+  if (len < 126) {
+    p[1] = mask | len;
+    p += 2;
+  } else if (len < 65536) {
+    p[1] = mask | 0x7E;
+    p[2] = (len >> 8) & 0xFF;
+    p[3] = len & 0xFF;
+    p += 4;
+  } else {
+    p[1] = mask | 0x7F;
+    uint32_t len2 = len;
+    for (i = 8; i > 0; --i) {
+      p[i+1] = len2 & 0xFF;
+      len2 = len2 >> 8;
+    }
+    p += 10;
+  }
+  ]]--
+  
 end
 
 --
@@ -97,15 +113,16 @@ receiver = function (req, chunk)
   local opcode = band(byte(buf, 1), 0x0F)
 
   -- reject too lenghty close frames
+  --[[ ?????
   if opcode == 8 and first >= 126 then
     req:emit('error', 1002, 'Wrong length for close frame')
     return
-  end
+  end]]--
 
   local l = 0
   local length = 0
   -- is message masked?
-  local masking = band(byte(buf, 2), 0x80) ~= 0
+  local masking = band(byte(buf, 2), 0x80) == 0x80
 
   -- get the length of payload.
   -- wait for additional data chunks if amount of data is insufficient
@@ -177,7 +194,7 @@ receiver = function (req, chunk)
       reason = sub(payload, 3)
     end
     -- report error. N.B. close is handled by error handler
-    req:emit('error', status, reason)
+    req:emit('close', status, reason)
   end
 
 end

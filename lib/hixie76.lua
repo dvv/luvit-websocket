@@ -1,6 +1,6 @@
 local Utils = require('utils')
 local Crypto = require('crypto')
-local rshift = require('bit').rshift
+local Bit = require('bit')
 
 local String = require('string')
 local sub, gsub, match, byte, char = String.sub, String.gsub, String.match, String.byte, String.char
@@ -23,7 +23,7 @@ local function verify_secret(req_headers, nonce)
       return false
     end
     n = n / spaces
-    data = data .. char(rshift(n, 24) % 256, rshift(n, 16) % 256, rshift(n, 8) % 256, n % 256)
+    data = data .. char(Bit.rshift(n, 24) % 256, Bit.rshift(n, 16) % 256, Bit.rshift(n, 8) % 256, n % 256)
   end
   data = data .. nonce
   return Crypto.md5(data, true)
@@ -48,10 +48,12 @@ receiver = function (req, chunk)
   -- collect data chunks
   if chunk then req.buffer = req.buffer .. chunk end
   local buf = req.buffer
+p('BUF', buf)
   -- wait for data
-  if #buf == 0 then return end
+  if #buf < 2 then return end
+  local first = byte(buf, 1)
   -- message starts with 0x00
-  if byte(buf, 1) == 0x00 then
+  if first == 0x00 then
     -- and lasts
     for i = 2, #buf do
       -- until 0xFF
@@ -69,14 +71,43 @@ receiver = function (req, chunk)
         return
       end
     end
-  -- close frame is sequence of 0xFF, 0x00
-  else
-    if byte(buf, 1) == 0xFF and byte(buf, 2) == 0x00 then
-      req:emit('error', 1000)
-    -- other sequences signify broken framimg
-    else
-      req:emit('error', 1002, 'Broken framing')
+  -- higest bit is set?
+  elseif Bit.band(first, 0x80) == 0x80 then
+    -- read explicit length of the frame
+    local blen = #buf
+    local len = 0
+    local i
+    for i = 2, #buf do
+      local b = byte(buf, i)
+p('LEN?', len, b)
+      len = Bit.lshift(len, 7) + Bit.band(b, 0x7F)
+      blen = blen - 1
+      if Bit.band(b, 0x80) ~= 0x80 then break end
     end
+p('LEN', len, blen, first)
+    -- nothing to do unless the frame is entirely loaded
+    if blen < len then return end
+    -- close frame is sequence of 0xFF, 0x00
+    if first == 0xFF and len == 0 then
+      req.buffer = ''
+      req:emit('close')
+      return
+    end
+    -- extract payload
+    local payload = sub(buf, i + 1, i + len)
+    -- consume data
+    req.buffer = sub(buf, i + len + 1)
+    -- emit event
+    if #payload > 0 then
+      req:emit('message', payload)
+    end
+    -- start over
+    receiver(req)
+    return
+  -- other sequences signify broken framimg
+  else
+p('WRONG', buf, byte(buf, 1), byte(buf, 2))
+    req:emit('error', 1002, 'Broken framing')
   end
 end
 
@@ -85,7 +116,6 @@ end
 --
 
 local function handshake(req, res, origin, location, callback)
-
   -- ack connection
   res.sec = req.headers['sec-websocket-key1']
   local prefix = res.sec and 'Sec-' or ''
@@ -105,8 +135,9 @@ local function handshake(req, res, origin, location, callback)
 
   -- verify connection
   local data = ''
-  req:once('data', function (chunk)
-    data = data .. chunk
+  local prelude
+  prelude = function (chunk)
+    if chunk then data = data .. chunk end
     if res.sec == false or #data >= 8 then
       if res.sec then
         local nonce = sub(data, 1, 8)
@@ -118,17 +149,21 @@ local function handshake(req, res, origin, location, callback)
           return
         end
         res.sec = nil
+        req:remove_listener('data', prelude)
         -- setup receiver
-        req.buffer = ''
+        --[[req.buffer = ''
         req:on('data', Utils.bind(receiver, req))
         -- consume initial data
-        req:emit('data', data)
+        req:emit('data', data)]]--
+        req.buffer = data
+        req:on('data', Utils.bind(receiver, req))
         -- register connection
         res:write(reply)
         if callback then callback(req, res) end
       end
     end
-  end)
+  end
+  req:on('data', prelude)
 
   -- setup sender
   res.send = sender
