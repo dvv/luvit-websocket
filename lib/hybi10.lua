@@ -7,6 +7,8 @@ local band, bor, bxor, rshift, lshift = Bit.band, Bit.bor, Bit.bxor, Bit.rshift,
 local String = require('string')
 local sub, gsub, match, byte, char = String.sub, String.gsub, String.match, String.byte, String.char
 
+local Math = require('math')
+
 local base64_table = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
 local function base64(data)
   return ((gsub(data, '.', function(x)
@@ -31,9 +33,6 @@ local function base64(data)
   })[#data % 3 + 1])
 end
 
-local Table = require('table')
-local push = Table.insert
-
 --
 -- verify connection secret
 --
@@ -51,51 +50,66 @@ local Codec = require('../build/hybi10.luvit')
 -- send payload
 --
 
-local function sender(self, payload, callback)
-  local plen = #payload
-  -- write prelude
-  local prelude = (' '):rep(plen < 126 and 2 or (plen < 65536 and 4 or 10))
-  Codec.encode(prelude, plen, 0)
-  self:write(prelude)
-  -- write payload
-  self:write(payload, callback)
+local function send_header(self, payload, mask)
+  local len = #payload
+
+  local l
+  local masking = mask and 0x80 or 0x00
+
+  -- compose header
+  local h = { 0, 0, }
+  h[1] = Bit.bor(0x80, 0x01)
+  if len < 126 then
+    h[2] = Bit.bor(len, masking)
+    l = 2
+  elseif len < 65536 then
+    h[2] = Bit.bor(0x7E, masking)
+    h[3] = Bit.band(Bit.rshift(len, 8), 0xFF)
+    h[4] = Bit.band(len, 0xFF)
+    l = 4
+  else
+    h[2] = Bit.bor(0x7F, masking)
+    local len2 = len
+    for i = 10, 3, -1 do
+      h[i] = Bit.band(len2, 0xFF)
+      len2 = Bit.rshift(len2, 8)
+    end
+    l = 10
+  end
+
+  -- put mask, if any
+  if mask then
+    local m = mask
+    for i = 4, 1, -1 do
+      h[l+i] = Bit.band(m, 0xFF)
+      m = Bit.rshift(m, 8)
+    end
+  end
+
+  -- write header
+  local s = ''
+  for _, b in ipairs(h) do s = s .. char(b) end
+  self:write(s)
 end
 
-local function sender_NEW(self, payload, callback)
---[[
-  local plen = #payload
-  -- compose prelude
-  local p = { }
-  p[1] = 0x80 | 0x01
+local function send_masked(self, payload, callback)
+  local mask = Math.random(0, 0xFFFFFFFF)
+  send_header(self, payload, mask)
+  Codec.xor32(payload, #payload, mask)
+  self:write(s, callback)
+end
 
-  // compose header
-  if (len < 126) {
-    p[1] = mask | len;
-    p += 2;
-  } else if (len < 65536) {
-    p[1] = mask | 0x7E;
-    p[2] = (len >> 8) & 0xFF;
-    p[3] = len & 0xFF;
-    p += 4;
-  } else {
-    p[1] = mask | 0x7F;
-    uint32_t len2 = len;
-    for (i = 8; i > 0; --i) {
-      p[i+1] = len2 & 0xFF;
-      len2 = len2 >> 8;
-    }
-    p += 10;
-  }
-  ]]--
-  
+local function send_unmasked(self, payload, callback)
+  send_header(self, payload)
+  self:write(payload, callback)
 end
 
 --
 -- extract complete message frames from incoming data
 --
 
-local receiver
-receiver = function (req, chunk)
+local receive
+receive = function (req, chunk)
 
   -- collect data chunks
   if chunk then req.buffer = req.buffer .. chunk end
@@ -168,7 +182,7 @@ receiver = function (req, chunk)
   local payload = sub(buf, l + 1, l + length)
   -- unmask if masked
   if masking then
-    payload = Codec.mask(payload, sub(buf, l - 3, l), length)
+    payload = Codec.xor32s(payload, sub(buf, l - 3, l), length)
   end
   -- consume data
   req.buffer = sub(buf, l + length + 1)
@@ -180,7 +194,7 @@ receiver = function (req, chunk)
       req:emit('message', payload)
     end
     -- and start over
-    receiver(req)
+    receive(req)
   -- close frame
   elseif opcode == 8 then
     local status = nil
@@ -218,9 +232,9 @@ local function handshake(req, res, origin, location, callback)
 
   -- setup receiver
   req.buffer = ''
-  req:on('data', Utils.bind(receiver, req))
+  req:on('data', Utils.bind(receive, req))
   -- setup sender
-  res.send = sender
+  res.send = send_unmasked
 
   -- register connection
   if callback then callback(req, res) end
@@ -229,7 +243,8 @@ end
 
 -- module
 return {
-  sender = sender,
-  receiver = receiver,
+  send = send_unmasked,
+  send_masked = send_masked,
+  receive = receive,
   handshake = handshake,
 }

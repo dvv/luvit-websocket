@@ -78,15 +78,35 @@ static int encode(lua_State *L) {
   return 0;
 }
 
-static int mask(lua_State *L) {
+static int xor32s(lua_State *L) {
 
-  //uint8_t *p = (uint8_t *)luaL_checkstring(L, 1);
   const char *p = luaL_checkstring(L, 1);
   const char *key = luaL_checkstring(L, 2);
   // FIXME: checklong?
   uint32_t len = luaL_checkint(L, 3);
 
-  // mask buffer content
+  // xor the buffer
+  uint32_t i, ki;
+  for (i = 0, ki = 0; i < len; ++i) {
+    ((uint8_t *)p)[i] ^= key[ki];
+    if (++ki > 3) ki = 0;
+  }
+
+  lua_pushstring(L, p);
+  return 1;
+
+  //return 0;
+}
+
+static int xor32(lua_State *L) {
+
+  const char *p = luaL_checkstring(L, 1);
+  uint32_t mask = luaL_checkint(L, 2);
+  // FIXME: checklong?
+  uint32_t len = luaL_checkint(L, 3);
+
+  // xor the buffer
+  const uint8_t *key = (const uint8_t *)&mask;
   uint32_t i, ki;
   for (i = 0, ki = 0; i < len; ++i) {
     ((uint8_t *)p)[i] ^= key[ki];
@@ -111,9 +131,9 @@ int createtable(lua_State *L) {
 
 
 static const luaL_reg exports[] = {
-  //{"header", header},
   {"encode", encode},
-  {"mask", mask},
+  {"xor32", xor32},
+  {"xor32s", xor32s},
   {"createtable", createtable},
   {NULL, NULL}
 };

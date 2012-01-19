@@ -2,8 +2,8 @@
 
 local String = require('string')
 
-local sndr = require('../lib/hybi10').sender
-local recv = require('../lib/hybi10').receiver
+local sndr = require('../lib/hybi10').send
+local recv = require('../lib/hybi10').receive
 
 local hit = 0
 

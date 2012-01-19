@@ -33,7 +33,7 @@ end
 -- send payload
 --
 
-local function sender(self, payload, callback)
+local function send(self, payload, callback)
   self:write('\000')
   self:write(payload)
   self:write('\255', callback)
@@ -43,12 +43,12 @@ end
 -- extract complete message frames from incoming data
 --
 
-local receiver
-receiver = function (req, chunk)
+local receive
+receive = function (req, chunk)
   -- collect data chunks
   if chunk then req.buffer = req.buffer .. chunk end
   local buf = req.buffer
-p('BUF', buf)
+--p('BUF', buf)
   -- wait for data
   if #buf < 2 then return end
   local first = byte(buf, 1)
@@ -67,7 +67,7 @@ p('BUF', buf)
           req:emit('message', payload)
         end
         -- start over
-        receiver(req)
+        receive(req)
         return
       end
     end
@@ -102,7 +102,7 @@ p('LEN', len, blen, first)
       req:emit('message', payload)
     end
     -- start over
-    receiver(req)
+    receive(req)
     return
   -- other sequences signify broken framimg
   else
@@ -152,11 +152,11 @@ local function handshake(req, res, origin, location, callback)
         req:remove_listener('data', prelude)
         -- setup receiver
         --[[req.buffer = ''
-        req:on('data', Utils.bind(receiver, req))
+        req:on('data', Utils.bind(receive, req))
         -- consume initial data
         req:emit('data', data)]]--
         req.buffer = data
-        req:on('data', Utils.bind(receiver, req))
+        req:on('data', Utils.bind(receive, req))
         -- register connection
         res:write(reply)
         if callback then callback(req, res) end
@@ -166,13 +166,13 @@ local function handshake(req, res, origin, location, callback)
   req:on('data', prelude)
 
   -- setup sender
-  res.send = sender
+  res.send = send
 
 end
 
 -- module
 return {
-  sender = sender,
-  receiver = receiver,
+  send = send,
+  receive = receive,
   handshake = handshake,
 }

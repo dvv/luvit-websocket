@@ -2,8 +2,8 @@
 
 local String = require('string')
 
-local sndr = require('../lib/hixie76').sender
-local recv = require('../lib/hixie76').receiver
+local sndr = require('../lib/hixie76').send
+local recv = require('../lib/hixie76').receive
 
 local hit = 0
 
@@ -47,7 +47,7 @@ for i = 1, 16 do
 end
 ]]--
 for i = 1, 10000 do
-  send_receive(('x'):rep(163840), i)
+  send_receive(('x'):rep(16384), i)
 end
 
 --[[
