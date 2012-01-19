@@ -1,7 +1,7 @@
 WebSocket
 =====
 
-The middleware layer for handling WebSocket connections.
+A library implementing Hixie and Hybi WebSocket protocol.
 
 Usage
 =====
@@ -10,7 +10,7 @@ Server
 -----
 
 ```lua
-local handle_websocket = require('websocket')
+local handle_websocket = require('websocket').handler
 
 require('http').create_server('0.0.0.0', 8080, function (req, res)
   if req.url:sub(1, 3) == '/ws' then

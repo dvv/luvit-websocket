@@ -1,6 +1,12 @@
+--
+-- http://tools.ietf.org/html/draft-hixie-thewebsocketprotocol-76
+--
+
 local Utils = require('utils')
 local Crypto = require('crypto')
+
 local Bit = require('bit')
+local band, bor, bxor, rshift, lshift = Bit.band, Bit.bor, Bit.bxor, Bit.rshift, Bit.lshift
 
 local String = require('string')
 local sub, gsub, match, byte, char = String.sub, String.gsub, String.match, String.byte, String.char
@@ -23,7 +29,7 @@ local function verify_secret(req_headers, nonce)
       return false
     end
     n = n / spaces
-    data = data .. char(Bit.rshift(n, 24) % 256, Bit.rshift(n, 16) % 256, Bit.rshift(n, 8) % 256, n % 256)
+    data = data .. char(rshift(n, 24) % 256, rshift(n, 16) % 256, rshift(n, 8) % 256, n % 256)
   end
   data = data .. nonce
   return Crypto.md5(data, true)
@@ -72,7 +78,7 @@ receive = function (req, chunk)
       end
     end
   -- higest bit is set?
-  elseif Bit.band(first, 0x80) == 0x80 then
+  elseif band(first, 0x80) == 0x80 then
     -- read explicit length of the frame
     local blen = #buf
     local len = 0
@@ -80,9 +86,9 @@ receive = function (req, chunk)
     for i = 2, #buf do
       local b = byte(buf, i)
 p('LEN?', len, b)
-      len = Bit.lshift(len, 7) + Bit.band(b, 0x7F)
+      len = lshift(len, 7) + band(b, 0x7F)
       blen = blen - 1
-      if Bit.band(b, 0x80) ~= 0x80 then break end
+      if band(b, 0x80) ~= 0x80 then break end
     end
 p('LEN', len, blen, first)
     -- nothing to do unless the frame is entirely loaded

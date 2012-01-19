@@ -1,5 +1,5 @@
-local hixie76 = require('./hixie76').handshake
-local hybi10 = require('./hybi10').handshake
+local hixie76 = require('./hixie76')
+local hybi10 = require('./hybi10')
 
 local function handler(req, res, callback)
 
@@ -26,17 +26,21 @@ local function handler(req, res, callback)
   location = location .. '://' .. req.headers.host .. req.url
   -- determine protocol version
   local ver = req.headers['sec-websocket-version']
-  local shaker = hixie76
-  if ver == '7' or ver == '8' or ver == '13' then shaker = hybi10 end
+  local draft = hixie76
+  if ver == '7' or ver == '8' or ver == '13' then draft = hybi10 end
 
   -- disable buffering
   res:nodelay(true)
   -- ??? timeout(0)?
 
   -- handshake, then register
-  shaker(req, res, origin, location, callback)
+  draft.handshake(req, res, origin, location, callback)
 
 end
 
 -- module
-return handler
+return {
+  handler = handler,
+  hixie76 = hixie76,
+  hybi10 = hybi10,
+}

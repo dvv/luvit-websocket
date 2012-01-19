@@ -1,3 +1,7 @@
+--
+-- http://tools.ietf.org/html/draft-ietf-hybi-thewebsocketprotocol-17
+--
+
 local Utils = require('utils')
 local Crypto = require('crypto')
 
@@ -58,21 +62,21 @@ local function send_header(self, payload, mask)
 
   -- compose header
   local h = { 0, 0, }
-  h[1] = Bit.bor(0x80, 0x01)
+  h[1] = bor(0x80, 0x01)
   if len < 126 then
-    h[2] = Bit.bor(len, masking)
+    h[2] = bor(len, masking)
     l = 2
   elseif len < 65536 then
-    h[2] = Bit.bor(0x7E, masking)
-    h[3] = Bit.band(Bit.rshift(len, 8), 0xFF)
-    h[4] = Bit.band(len, 0xFF)
+    h[2] = bor(0x7E, masking)
+    h[3] = band(rshift(len, 8), 0xFF)
+    h[4] = band(len, 0xFF)
     l = 4
   else
-    h[2] = Bit.bor(0x7F, masking)
+    h[2] = bor(0x7F, masking)
     local len2 = len
     for i = 10, 3, -1 do
-      h[i] = Bit.band(len2, 0xFF)
-      len2 = Bit.rshift(len2, 8)
+      h[i] = band(len2, 0xFF)
+      len2 = rshift(len2, 8)
     end
     l = 10
   end
@@ -81,8 +85,8 @@ local function send_header(self, payload, mask)
   if mask then
     local m = mask
     for i = 4, 1, -1 do
-      h[l+i] = Bit.band(m, 0xFF)
-      m = Bit.rshift(m, 8)
+      h[l+i] = band(m, 0xFF)
+      m = rshift(m, 8)
     end
   end
 
