@@ -7,4 +7,7 @@ return {
     crypto  = "https://github.com/luvit/crypto/zipball/master",
     cmdline = "https://github.com/luvit/cmdline/zipball/master",
   },
+  bin = {
+    ws = './bin/ws',
+  },
 }

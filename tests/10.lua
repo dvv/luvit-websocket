@@ -1,5 +1,3 @@
-#!/usr/bin/env luvit
-
 local String = require('string')
 
 local sndr = require('../lib/hybi10').send
@@ -28,7 +26,7 @@ function send_receive(orig, assert_message)
   sndr(ws, orig)
 end
 
-function send_receive_idle(orig, assert_message)
+function send_receive_idle(orig, assert_message, callback)
   local ws = {
     buffer = '',
     write = function (self, data, callback)
@@ -42,7 +40,7 @@ function send_receive_idle(orig, assert_message)
         process.exit(1)
       end
       if hit == 10000 then
-        p('DONE')
+        callback()
       end
     end,
   }
@@ -67,9 +65,16 @@ for i = 1, 16 do
   send(('x'):rep(n), n .. ' x')
 end
 ]]--
-for i = 1, 10000 do
-  send_receive_idle(('x'):rep(16384), i)
-  --send_receive(('x'):rep(16384), i)
+
+local exports = { }
+
+exports['hybi10: 10000 messages 16384 octet length'] = function (test)
+  for i = 1, 10000 do
+    test.ok(true)
+    send_receive_idle(('x'):rep(16384), i, function ()
+      test.done()
+    end)
+  end
 end
 
 --[[
@@ -87,3 +92,5 @@ for i = 1, 254 do for j = 1, 254 do
 end end
 send_receive(s65536, 'all chars')
 ]]--
+
+return exports
