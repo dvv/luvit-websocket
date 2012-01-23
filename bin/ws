@@ -30,6 +30,7 @@ local expected_key = atob(Crypto.sha1(key .. '258EAFA5-E914-47DA-95CA-C5AB0DC85B
 
 Curl.get({
   url = url,
+  proxy = false,
   parse = false,
   headers = {
     ['Connection'] = 'Upgrade',
@@ -49,13 +50,17 @@ Curl.get({
     process.exit(1)
   end
   --
-  req:on('data', Utils.bind(receive, req))
+  --req:on('data', Utils.bind(receive, req))
+  req:on('data', function (data)
+    p('MDDD', data)
+    receive(req, data)
+  end)
   req.send = send
   req:on('message', function (message)
     p('<', message)
   end)
   --
   p('Sending')
-  req:send('foo')
+  --req:send('foo')
   p('Sent!')
 end)
