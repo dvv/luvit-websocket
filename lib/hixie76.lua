@@ -85,12 +85,12 @@ receive = function (req, chunk)
     local i
     for i = 2, #buf do
       local b = byte(buf, i)
-p('LEN?', len, b)
+--p('LEN?', len, b)
       len = lshift(len, 7) + band(b, 0x7F)
       blen = blen - 1
       if band(b, 0x80) ~= 0x80 then break end
     end
-p('LEN', len, blen, first)
+--p('LEN', len, blen, first)
     -- nothing to do unless the frame is entirely loaded
     if blen < len then return end
     -- close frame is sequence of 0xFF, 0x00
@@ -112,7 +112,7 @@ p('LEN', len, blen, first)
     return
   -- other sequences signify broken framimg
   else
-p('WRONG', buf, byte(buf, 1), byte(buf, 2))
+--p('WRONG', buf, byte(buf, 1), byte(buf, 2))
     req:emit('error', 1002, 'Broken framing')
   end
 end
@@ -129,7 +129,7 @@ local function handshake(req, res, origin, location, callback)
   if protocol then
     protocol = (match(protocol, '[^,]*'))
   end
-  res:write_head(101, {
+  res:writeHead(101, {
     ['Upgrade'] = 'WebSocket',
     ['Connection'] = 'Upgrade',
     [prefix .. 'WebSocket-Origin'] = origin,

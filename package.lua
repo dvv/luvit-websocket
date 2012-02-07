@@ -5,9 +5,5 @@ return {
   author = "Vladimir Dronnikov <dronnikov@gmail.com>",
   dependencies = {
     crypto  = "https://github.com/dvv/luvit-crypto/zipball/master",
-    cmdline = "https://github.com/dvv/luvit-cmdline/zipball/master",
-  },
-  bin = {
-    ws = './bin/ws',
   },
 }

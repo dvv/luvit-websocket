@@ -204,7 +204,7 @@ local function handshake(req, res, origin, location, callback)
   -- ack connection
   local protocol = req.headers['sec-websocket-protocol']
   if protocol then protocol = (match(protocol, '[^,]*')) end
-  res:write_head(101, {
+  res:writeHead(101, {
     ['Upgrade'] = 'WebSocket',
     ['Connection'] = 'Upgrade',
     ['Sec-WebSocket-Accept'] = atob(verify_secret(req.headers['sec-websocket-key'])),

@@ -30,7 +30,7 @@ local function handler(req, res, callback)
   if ver == '7' or ver == '8' or ver == '13' then draft = hybi10 end
 
   -- disable buffering
-  res:nodelay(true)
+  res.socket:nodelay(true)
   -- ??? timeout(0)?
 
   -- handshake, then register
