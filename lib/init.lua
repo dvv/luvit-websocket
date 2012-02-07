@@ -7,7 +7,7 @@ local function handler(req, res, callback)
   if   (req.headers.upgrade or ''):lower() ~= 'websocket'
     or not (',' .. (req.headers.connection or ''):lower() .. ','):match('[^%w]+upgrade[^%w]+')
   then
-    res:set_code(400)
+    res:setCode(400)
     res:finish()
     return
   end
@@ -16,7 +16,7 @@ local function handler(req, res, callback)
   local origin = req.headers.origin
   -- TODO: 7/8 uses sec-websocket-origin?
   --[[if not verify_origin(origin, options.origins) then
-    res:set_code(401)
+    res:setCode(401)
     res:finish()
     return
   end]]--
@@ -28,6 +28,9 @@ local function handler(req, res, callback)
   local ver = req.headers['sec-websocket-version']
   local draft = hixie76
   if ver == '7' or ver == '8' or ver == '13' then draft = hybi10 end
+
+  -- turn chunking mode off
+  res.auto_chunked = false
 
   -- disable buffering
   res.socket:nodelay(true)

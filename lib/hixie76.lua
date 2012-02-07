@@ -155,7 +155,7 @@ local function handshake(req, res, origin, location, callback)
           return
         end
         res.sec = nil
-        req:remove_listener('data', prelude)
+        req:removeListener('data', prelude)
         -- setup receiver
         --[[req.buffer = ''
         req:on('data', Utils.bind(receive, req))
