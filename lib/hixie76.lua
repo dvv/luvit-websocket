@@ -3,7 +3,7 @@
 --
 
 local Utils = require('utils')
-local Crypto = require('crypto')
+local Crypto = require('_crypto')
 
 local Bit = require('bit')
 local band, bor, bxor, rshift, lshift = Bit.band, Bit.bor, Bit.bxor, Bit.rshift, Bit.lshift

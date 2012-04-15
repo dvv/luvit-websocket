@@ -3,7 +3,7 @@
 --
 
 local Utils = require('utils')
-local Crypto = require('crypto')
+local crypto = require('_crypto')
 
 local Bit = require('bit')
 local band, bor, bxor, rshift, lshift = Bit.band, Bit.bor, Bit.bxor, Bit.rshift, Bit.lshift
@@ -20,8 +20,9 @@ local atob = require('./util').atob
 --
 
 local function verify_secret(key)
-  local data = (match(key, '(%S+)')) .. '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
-  return Crypto.sha1(data, true)
+  local data = key .. '258EAFA5-E914-47DA-95CA-C5AB0DC85B11'
+  local sha1 = crypto.digest.new("sha1")
+  return sha1:final(data,true)
 end
 
 -- Lua has no mutable string. Workarounds are slow too.
