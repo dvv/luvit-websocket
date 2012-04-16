@@ -12,7 +12,7 @@ Server
 ```lua
 local handle_websocket = require('websocket').handler
 
-require('http').create_server('0.0.0.0', 8080, function (req, res)
+require('http').createServer('0.0.0.0', 8080, function (req, res)
   if req.url:sub(1, 3) == '/ws' then
     handle_websocket(req, res, function ()
       -- simple repeater
@@ -41,4 +41,4 @@ ws.send('foo')
 License
 -------
 
-[MIT](websocket/license.txt)
+[MIT](luvit-websocket/license.txt)
