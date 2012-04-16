@@ -33,7 +33,7 @@ local function handler(req, res, callback)
   res.auto_chunked_encoding = false
 
   -- disable buffering
-  res.socket:nodelay(true)
+  res.socket._handle:nodelay(true)
   -- ??? timeout(0)?
 
   -- handshake, then register
