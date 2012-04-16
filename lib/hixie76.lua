@@ -3,7 +3,7 @@
 --
 
 local Utils = require('utils')
-local Crypto = require('crypto')
+local Crypto = require('_crypto')
 
 local Bit = require('bit')
 local band, bor, bxor, rshift, lshift = Bit.band, Bit.bor, Bit.bxor, Bit.rshift, Bit.lshift
@@ -32,7 +32,8 @@ local function verify_secret(req_headers, nonce)
     data = data .. char(rshift(n, 24) % 256, rshift(n, 16) % 256, rshift(n, 8) % 256, n % 256)
   end
   data = data .. nonce
-  return Crypto.md5(data, true)
+  local md5 = Crypto.digest.new('md5')
+  return md5:final(data, true)
 end
 
 --
