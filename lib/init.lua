@@ -29,9 +29,6 @@ local function handler(req, res, callback)
   local draft = hixie76
   if ver == '7' or ver == '8' or ver == '13' then draft = hybi10 end
 
-  -- turn chunking mode off
-  res.auto_chunked_encoding = false
-
   -- disable buffering
   res.socket._handle:nodelay(true)
   -- ??? timeout(0)?
