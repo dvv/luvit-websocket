@@ -1,6 +1,0 @@
-local FFI = require('ffi')
-FFI.cdef[[
-void encode(const char *buf, uint32_t len);
-void mask(const char *buf, const char *key, uint32_t len);
-]]
-local Codec = FFI.load(__dirname .. '/../hybi10.ffi.luvit')
